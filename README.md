@@ -1,11 +1,11 @@
-# Unmanic Plugins by <!-- your name here -->
+# Unmanic Plugins by kmarius
 
 ## Instructions
 
 ### Repo URL:
 <!-- Replace the below link with your own repo URL (found in the 'repo' git branch) -->
 ```
-https://raw.githubusercontent.com/Unmanic/unmanic-plugins/repo/repo.json
+https://raw.githubusercontent.com/kmarius/unmanic-plugins/repo/repo.json
 ```
 
 
