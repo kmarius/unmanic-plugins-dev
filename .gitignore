@@ -35,3 +35,4 @@ template/
 
 # Plugin site-packages
 source/**/site-packages/**
+source/**/__pycache__
