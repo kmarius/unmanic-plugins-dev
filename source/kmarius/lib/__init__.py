@@ -4,8 +4,9 @@ import os
 from unmanic.libs import common
 from kmarius.lib.ffmpeg import Probe
 
+# db stored in userdata/kmarius
 db_path = os.path.join(common.get_home_dir(), ".unmanic",
-                       "userdata", "kmarius.db")
+                       "userdata", "kmarius", "kmarius.db")
 
 
 def get_conn():
