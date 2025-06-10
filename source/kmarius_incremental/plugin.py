@@ -29,10 +29,6 @@ def on_library_management_file_test(data):
     return
 
 
-def on_worker_process(data):
-    data["exec_command"] = []
-
-
 def on_postprocessor_task_results(data):
     # TODO: there could be multiple files here
     path = data["destination_files"][0]
