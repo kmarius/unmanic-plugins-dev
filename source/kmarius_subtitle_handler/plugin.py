@@ -21,12 +21,11 @@
 """
 import logging
 import re
+import os
 
 from kmarius.lib import lazy_init
-from kmarius.lib.ffmpeg import StreamMapper, Parser
+from kmarius.lib.ffmpeg import StreamMapper, Parser, Probe
 from unmanic.libs.unplugins.settings import PluginSettings
-import os
-from kmarius.lib.ffmpeg import Probe
 
 # Configure plugin logger
 logger = logging.getLogger("Unmanic.Plugin.kmarius_subtitle_handler")
@@ -34,19 +33,15 @@ logger = logging.getLogger("Unmanic.Plugin.kmarius_subtitle_handler")
 
 class Settings(PluginSettings):
     settings = {
-        "languages_to_extract":              "",
-        "include_title_in_output_file_name": True
+        "languages_to_extract": "eng",
     }
 
     def __init__(self, *args, **kwargs):
         super(Settings, self).__init__(*args, **kwargs)
 
         self.form_settings = {
-            "languages_to_extract":              {
+            "languages_to_extract": {
                 "label": "Subtitle languages to extract (leave empty for all)",
-            },
-            "include_title_in_output_file_name": {
-                "label": "Include title in output file name",
             },
         }
 
@@ -92,7 +87,7 @@ class PluginStreamMapper(StreamMapper):
         # Skip stream
         if len(self.languages) > 0 and language_tag not in self.languages:
             return {
-                'stream_mapping':  [],
+                'stream_mapping': [],
                 'stream_encoding': [],
             }
 
@@ -101,9 +96,6 @@ class PluginStreamMapper(StreamMapper):
 
         if language_tag:
             subtitle_tag = "{}.{}".format(subtitle_tag, language_tag)
-
-        if title_tag and self.settings.get_setting('include_title_in_output_file_name'):
-            subtitle_tag = "{}.{}".format(subtitle_tag, title_tag)
 
         # If there were no tags, just number the file
         if not subtitle_tag:
@@ -115,15 +107,15 @@ class PluginStreamMapper(StreamMapper):
 
         self.sub_streams.append(
             {
-                'stream_id':      stream_id,
-                'subtitle_tag':   subtitle_tag,
+                'stream_id': stream_id,
+                'subtitle_tag': subtitle_tag,
                 'stream_mapping': ['-map', '0:s:{}'.format(stream_id)],
             }
         )
 
         # Copy the streams to the destination. This will actually do nothing...
         return {
-            'stream_mapping':  ['-map', '0:s:{}'.format(stream_id)],
+            'stream_mapping': ['-map', '0:s:{}'.format(stream_id)],
             'stream_encoding': ['-c:s:{}'.format(stream_id), 'copy'],
         }
 
@@ -162,7 +154,7 @@ def on_library_management_file_test(data):
     # remove all streams
     for idx, stream_info in enumerate(subtitle_streams):
         subtitle_mappings[idx] = {
-            'stream_mapping':  [],
+            'stream_mapping': [],
             'stream_encoding': [],
         }
 
