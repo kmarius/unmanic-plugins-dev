@@ -1,6 +1,49 @@
 from asyncio import streams
-
+from unmanic.libs import common
 from kmarius.lib.ffmpeg import Probe
+
+db_path = os.path.join(common.get_home_dir(), ".unmanic",
+                       "userdata", "kmarius.db")
+
+
+def get_conn():
+    common.get_home_dir()
+    conn = sqlite3.connect(db_path)
+    setup(conn)
+    return conn
+
+
+def setup(conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS timestamps (
+        path TEXT PRIMARY KEY,
+        mtime INTEGER
+    )
+    ''')
+    conn.commit()
+
+
+def store_timestamp(path, mtime):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("INSERT OR REPLACE INTO timestamps VALUES(?, ?)",
+                (path, mtime))
+    conn.commit()
+    conn.close()
+
+
+def load_timestamp(path):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT mtime FROM timestamps WHERE path = ?",  (path,))
+    next = cur.fetchone()
+    mtime = None
+    if next:
+        mtime = next[0]
+    conn.commit()
+    conn.close()
+    return mtime
 
 
 def streams_from_probe(probe):

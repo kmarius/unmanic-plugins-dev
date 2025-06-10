@@ -43,22 +43,27 @@ def on_library_management_file_test(data):
     kmarius = lazy_init(data, logger)
 
     if kmarius["add_file_to_pending_tasks"]:
-        data['add_file_to_pending_tasks'] = True
-
         # pass data to the processor via global variable
         global kmarius_data
         kmarius_data[data.get("path")] = kmarius
 
+    # we always run the executor, because if no on_worker_process runs,
+    # the completion tasks don't run
+    data['add_file_to_pending_tasks'] = True
     return data
 
 
 def on_worker_process(data):
     path = data.get("original_file_path")
     if not path in kmarius_data:
-        logger.error(f"kmarius data not found for {path}")
+        # nothing needed to be done, we execute nothing
+        data["exec_command"] = []
         return None
+
     kmarius = kmarius_data[path]
-    probe = kmarius["probe"]
+    del kmarius_data[path]
+
+    probe = kmarius.get("probe")
 
     abspath = data.get('file_in')
 
