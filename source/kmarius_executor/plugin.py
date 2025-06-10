@@ -58,7 +58,7 @@ def on_worker_process(data):
     if not path in kmarius_data:
         # nothing needed to be done, we execute nothing
         data["exec_command"] = []
-        return None
+        return data
 
     kmarius = kmarius_data[path]
     del kmarius_data[path]

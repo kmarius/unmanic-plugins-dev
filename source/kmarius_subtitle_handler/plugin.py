@@ -183,7 +183,7 @@ def on_worker_process(data):
 
     probe = Probe(logger, allowed_mimetypes=['video'])
     if not probe.file(abspath):
-        return
+        return None
 
     if data.get('library_id'):
         settings = Settings(library_id=data.get('library_id'))
