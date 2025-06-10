@@ -24,6 +24,7 @@ def on_library_management_file_test(data):
     stored_timestamp = load_timestamp(path)
 
     if stored_timestamp == disk_timestamp:
+        logger.info(f"file unchanged: {path}")
         data['add_file_to_pending_tasks'] = False
 
     return
