@@ -43,7 +43,6 @@ def load_timestamp(path):
     mtime = None
     if next:
         mtime = next[0]
-    conn.commit()
     conn.close()
     return mtime
 
