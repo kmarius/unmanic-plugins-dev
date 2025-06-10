@@ -1,0 +1,15 @@
+{
+  "author": "",
+  "compatibility": [
+    2
+  ],
+  "description": "",
+  "icon": "",
+  "id": "kmarius",
+  "name": "Kmarius Lib",
+  "priorities": {
+    "on_library_management_file_test": 0
+  },
+  "tags": "",
+  "version": "0.0.1"
+}

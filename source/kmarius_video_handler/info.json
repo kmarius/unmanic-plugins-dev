@@ -1,0 +1,15 @@
+{
+  "author": "",
+  "compatibility": [
+    2
+  ],
+  "description": "",
+  "icon": "",
+  "id": "kmarius_video_handler",
+  "name": "Kmarius Video Handler",
+  "priorities": {
+    "on_library_management_file_test": 0
+  },
+  "tags": "",
+  "version": "0.0.1"
+}

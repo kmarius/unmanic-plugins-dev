@@ -1,0 +1,15 @@
+{
+  "author": "",
+  "compatibility": [
+    2
+  ],
+  "description": "",
+  "icon": "",
+  "id": "kmarius_executor",
+  "name": "Kmarius Executor",
+  "priorities": {
+    "on_worker_process": 0
+  },
+  "tags": "",
+  "version": "0.0.1"
+}
