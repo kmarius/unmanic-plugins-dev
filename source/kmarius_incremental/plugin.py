@@ -9,14 +9,21 @@ from kmarius.lib import load_timestamp, store_timestamp
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_incremental")
 
-# TODO: add override setting
+
 class Settings(PluginSettings):
-    settings = {}
+    settings = {
+        "Ignore Timestamps": False,
+    }
 
     def __init__(self, *args, **kwargs):
         super(Settings, self).__init__(*args, **kwargs)
 
+
 def on_library_management_file_test(data):
+    settings = Settings(library_id=data.get('library_id'))
+    if settings.get_setting('Ignore Timestamps'):
+        return
+
     path = data.get("path")
 
     file_stat = os.stat(path)
@@ -26,8 +33,6 @@ def on_library_management_file_test(data):
     if stored_timestamp == disk_timestamp:
         logger.info(f"file unchanged: {path}")
         data['add_file_to_pending_tasks'] = False
-
-    return
 
 
 def on_postprocessor_task_results(data):
