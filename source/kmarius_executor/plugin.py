@@ -7,6 +7,8 @@ import os
 from kmarius.lib import lazy_init
 from kmarius.lib.ffmpeg import StreamMapper, Parser
 
+from source.kmarius.lib import store_timestamp
+
 # Configure plugin logger
 logger = logging.getLogger("Unmanic.Plugin.kmarius_executor")
 
@@ -41,22 +43,26 @@ class PluginStreamMapper(StreamMapper):
 
 def on_library_management_file_test(data):
     kmarius = lazy_init(data, logger)
+    path = data.get("path")
 
     if kmarius["add_file_to_pending_tasks"]:
+        data['add_file_to_pending_tasks'] = True
         # pass data to the processor via global variable
         global kmarius_data
-        kmarius_data[data.get("path")] = kmarius
+        kmarius_data[path] = kmarius
+    else:
+        # update timestamp for kmarius_incremental
+        file_stat = os.stat(path)
+        timestamp = int(file_stat.st_mtime)
+        store_timestamp(path, timestamp)
 
-    # we always run the executor, because if no on_worker_process runs,
-    # the completion tasks don't run
-    data['add_file_to_pending_tasks'] = True
     return data
 
 
 def on_worker_process(data):
     path = data.get("original_file_path")
     if not path in kmarius_data:
-        # nothing needed to be done, we execute nothing
+        logger.error(f"no data for {path}")
         data["exec_command"] = []
         return data
 
