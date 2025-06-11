@@ -3,10 +3,10 @@
   "compatibility": [
     2
   ],
-  "description": "Incremental library scan - DB Updater. This plugin must be the last plugin in the File test pipeline to update timestamps after successfull testing/processing.",
+  "description": "Updates timestamp database to allow for incremental library scans.",
   "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
   "id": "kmarius_incremental_scan_db",
-  "name": "Incremental Scan - DB Updater",
+  "name": "Incremental Library Scan - DB Updater",
   "priorities": {
     "on_library_management_file_test": 0,
     "on_postprocessor_task_results": 0

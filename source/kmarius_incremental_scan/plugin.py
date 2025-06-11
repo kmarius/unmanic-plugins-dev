@@ -16,7 +16,7 @@ class Settings(PluginSettings):
     }
     form_settings = {
         "ignore_timestamps": {
-            "label": "Ignore Timestamps",
+            "label": "Disable timestamp checking.",
         },
     }
 

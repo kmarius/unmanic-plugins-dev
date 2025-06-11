@@ -3,10 +3,10 @@
   "compatibility": [
     2
   ],
-  "description": "Incremental library scan, skipping files that have not changed since last scan. Only works in combination with Incremental Scan - DB Updater",
+  "description": "Perform incremental library scans by skipping unchanged files.",
   "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
   "id": "kmarius_incremental_scan",
-  "name": "Incremental Scan",
+  "name": "Incremental Library Scan",
   "priorities": {
     "on_library_management_file_test": 0
   },
