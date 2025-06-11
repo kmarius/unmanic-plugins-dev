@@ -4,7 +4,7 @@
 import logging
 import os
 
-from kmarius.lib import lazy_init, store_timestamp
+from kmarius.lib import lazy_init
 from kmarius.lib.ffmpeg import StreamMapper, Parser
 
 # Configure plugin logger
@@ -48,11 +48,6 @@ def on_library_management_file_test(data):
         # pass data to the processor via global variable
         global kmarius_data
         kmarius_data[path] = kmarius
-    else:
-        # update timestamp for kmarius_incremental
-        file_stat = os.stat(path)
-        timestamp = int(file_stat.st_mtime)
-        store_timestamp(path, timestamp)
 
     return data
 

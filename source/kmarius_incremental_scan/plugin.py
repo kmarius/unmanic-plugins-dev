@@ -5,14 +5,19 @@ import logging
 import os
 
 from unmanic.libs.unplugins.settings import PluginSettings
-from kmarius.lib import load_timestamp, store_timestamp
+from kmarius_incremental_scan_db.lib import load_timestamp, store_timestamp
 
-logger = logging.getLogger("Unmanic.Plugin.kmarius_incremental")
+logger = logging.getLogger("Unmanic.Plugin.kmarius_incremental_scan")
 
 
 class Settings(PluginSettings):
     settings = {
-        "Ignore Timestamps": False,
+        "ignore_timestamps": False
+    }
+    form_settings = {
+        "ignore_timestamps": {
+            "label": "Ignore Timestamps",
+        },
     }
 
     def __init__(self, *args, **kwargs):
@@ -21,27 +26,19 @@ class Settings(PluginSettings):
 
 def on_library_management_file_test(data):
     settings = Settings(library_id=data.get('library_id'))
-    if settings.get_setting('Ignore Timestamps'):
-        return
+    if settings.get_setting('ignore_timestamps'):
+        return data
 
     path = data.get("path")
-
     file_stat = os.stat(path)
     disk_timestamp = int(file_stat.st_mtime)
     stored_timestamp = load_timestamp(path)
 
     if stored_timestamp == disk_timestamp:
-        logger.info(f"file unchanged: {path}")
         data['add_file_to_pending_tasks'] = False
+        data["issues"].append({
+            'id': "kmarius_incremental_scan",
+            'message': f"file unchanged: {path}"
+        })
 
-
-def on_postprocessor_task_results(data):
-    # TODO: there could be multiple files here
-    path = data["destination_files"][0]
-
-    if data["task_processing_success"] and data["file_move_processes_success"]:
-        file_stat = os.stat(path)
-        timestamp = int(file_stat.st_mtime)
-        store_timestamp(path, timestamp)
-
-    return
+    return data
