@@ -31,10 +31,13 @@ def on_library_management_file_test(data):
     kmarius = lazy_init(data, logger)
     path = data.get("path")
 
+    if kmarius.get("add_file_to_pending_tasks", False):
+        # we only need to test if no other ffmpeg commands run, because we always move the moov atom
+        return data
+
     split_file_in = os.path.splitext(path)
     extension = split_file_in[1].lstrip(".").lower()
 
-    # we only check mp4 containers, if e.g. an mkv is remuxed to mp4, moov will always be moved to front
     if extension == "mp4" and not moov_is_at_front(path):
         data["issues"].append({
             'id': "kmarius_faststart_handler",
