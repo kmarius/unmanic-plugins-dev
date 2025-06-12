@@ -3,10 +3,10 @@
   "compatibility": [
     2
   ],
-  "description": "Perform incremental library scans by skipping unchanged files.",
+  "description": "Removes metadata from streams and the file itself.",
   "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
-  "id": "kmarius_incremental_scan",
-  "name": "Incremental Library Scan",
+  "id": "kmarius_metadata_handler",
+  "name": "Metadata Handler",
   "priorities": {
     "on_library_management_file_test": 0
   },
