@@ -1,0 +1,15 @@
+{
+  "author": "kmarius",
+  "compatibility": [
+    2
+  ],
+  "description": "Library of utilities for plugins.",
+  "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+  "id": "kmarius",
+  "name": "Kmarius Library",
+  "priorities": {
+    "on_library_management_file_test": 0
+  },
+  "tags": "",
+  "version": "0.0.1"
+}
