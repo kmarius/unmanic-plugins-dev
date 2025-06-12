@@ -19,7 +19,6 @@ def _get_bitrate(stream_info, path):
         for key in tags.keys():
             if re.match("BPS.*", key):
                 return int(tags[key])
-    # try mkvinfo (assumes the video stream is the first one)
     cmd = ["mkvinfo", "-t", path]
     output = subprocess.run(cmd, capture_output=True)
     stream_index = stream_info["index"]
