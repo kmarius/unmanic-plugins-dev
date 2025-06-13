@@ -36,14 +36,11 @@ class Settings(PluginSettings):
         "languages_to_extract": "eng",
     }
 
-    def __init__(self, *args, **kwargs):
-        super(Settings, self).__init__(*args, **kwargs)
-
-        self.form_settings = {
-            "languages_to_extract": {
-                "label": "Subtitle languages to extract (leave empty for all)",
-            },
-        }
+    form_settings = {
+        "languages_to_extract": {
+            "label": "Subtitle languages to extract (leave empty for all)",
+        },
+    }
 
 
 class PluginStreamMapper(StreamMapper):

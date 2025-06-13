@@ -3,12 +3,29 @@
 
 import logging
 import subprocess
-
 import re
 
 from kmarius.lib import lazy_init
+from unmanic.libs.unplugins.settings import PluginSettings
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_video_handler")
+
+
+class Settings(PluginSettings):
+    settings = {
+        "target_bitrate": 3000,
+        "bitrate_cutoff": 4500,
+    }
+    form_settings = {
+        "target_bitrate": {
+            "label": "Target bitrate (kbit/s)",
+            "description": "Target bitrate passed to the h264 encoder",
+        },
+        "bitrate_cutoff": {
+            "label": "Bitrate cutoff (kbit/s)",
+            "description": "Won't re-encode if current bitrate is smaller than this value.",
+        },
+    }
 
 
 def _get_bitrate(stream_info, path):
@@ -29,40 +46,37 @@ def _get_bitrate(stream_info, path):
 
 
 # change everything that is not 8bit h264 with a reasonable bit rate
-def needs_encoding(stream_info, path):
-    codec_name = stream_info["codec_name"]
+def needs_encoding(stream_info, path, bitrate_cutoff):
     if stream_info["codec_name"] != "h264":
-        logger.info(f"wrong codec: {codec_name}")
         return True
 
     bit_rate = _get_bitrate(stream_info, path)
-    if bit_rate is not None and bit_rate > 4500000:
-        logger.info(f"bitrate too high: {bit_rate}")
+    if bit_rate is None:
+        logger.error(f"Could not determine bitrate for {path}")
+
+    if bit_rate is not None and bit_rate > bitrate_cutoff:
         return True
 
     pixel_fmt = stream_info["pix_fmt"] if "pix_fmt" in stream_info else None
     if pixel_fmt is not None and pixel_fmt != "yuv420p":
-        logger.info(f"wrong pixel_fmt: {pixel_fmt}")
         return True
 
     return False
 
 
-def video_stream_mapping(stream_info, idx, path):
+def video_stream_mapping(stream_info, idx, path, target_bitrate, bitrate_cutoff):
     # remove images
     codec_name = stream_info["codec_name"]
     if codec_name in ["png", "mjpeg"]:
-        logger.info(f"removing image: {codec_name}")
         return {
-            'stream_mapping':  [],
+            'stream_mapping': [],
             'stream_encoding': [],
         }
 
-    if needs_encoding(stream_info, path):
-        stream_encoding = [f'-c:v:{idx}', "libx264",
-                           "-pix_fmt", "yuv420p", f"-b:v:{idx}", "3000000"]
+    if needs_encoding(stream_info, path, bitrate_cutoff):
+        stream_encoding = [f'-c:v:{idx}', "libx264", "-pix_fmt", "yuv420p", f"-b:v:{idx}", f"{target_bitrate}"]
         return {
-            'stream_mapping':  ['-map', '0:v:{}'.format(idx)],
+            'stream_mapping': ['-map', '0:v:{}'.format(idx)],
             'stream_encoding': stream_encoding,
         }
 
@@ -72,11 +86,15 @@ def video_stream_mapping(stream_info, idx, path):
 def on_library_management_file_test(data):
     kmarius = lazy_init(data, logger)
 
+    settings = Settings(library_id=data.get('library_id'))
+    target_bitrate = settings.get_setting('target_bitrate') * 1000
+    bitrate_cutoff = settings.get_setting('bitrate_cutoff') * 1000
+
     video_streams = kmarius["streams"]["video"]
     video_mappings = {}
 
     for idx, stream_info in enumerate(video_streams):
-        mapping = video_stream_mapping(stream_info, idx, data.get('path'))
+        mapping = video_stream_mapping(stream_info, idx, data.get('path'), target_bitrate, bitrate_cutoff)
         if mapping:
             video_mappings[idx] = mapping
 
