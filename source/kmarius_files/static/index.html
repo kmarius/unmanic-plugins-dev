@@ -2,16 +2,16 @@
 <html>
 <head>
     <link
-        rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
     />
     <link
-        rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/wunderbaum@0/dist/wunderbaum.min.css"
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/wunderbaum@0/dist/wunderbaum.min.css"
     />
     <script
-        defer
-        src="https://cdn.jsdelivr.net/npm/wunderbaum@0/dist/wunderbaum.umd.min.js"
+            defer
+            src="https://cdn.jsdelivr.net/npm/wunderbaum@0/dist/wunderbaum.umd.min.js"
     ></script>
     <style>
         section {
@@ -25,6 +25,22 @@
         }
     </style>
     <script>
+        const HAVE_INCREMENTAL_SCAN = false;
+
+        const actions_default = `<select tabindex="-1">
+                <option value="test">Test</option>
+                <option value="process">Process</option>
+                </select>`;
+
+        const actions_extended = `<select tabindex="-1">
+                <option value="test">Test</option>
+                <option value="process">Process</option>
+                <option value="reset-timestamp">Reset Timestamp</option>
+                <option value="update-timestamp">Update Timestamp</option>
+                </select>`;
+
+        const actions = HAVE_INCREMENTAL_SCAN ? actions_extended : actions_default;
+
         function formatFileSize(bytes) {
             if (!bytes)
                 return;
@@ -83,6 +99,24 @@
                     break;
                 case "process":
                     await fetch('/unmanic/plugin_api/kmarius_files/process', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    break;
+                case "update-timestamp":
+                    await fetch('/unmanic/plugin_api/kmarius_files/timestamp/update', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    break;
+                case "reset-timestamp":
+                    await fetch('/unmanic/plugin_api/kmarius_files/timestamp/reset', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -187,10 +221,7 @@
                                 break
                             case "action":
                                 if (e.isNew) {
-                                    col.elem.innerHTML = `<select tabindex="-1">
-                <option value="test">Test</option>
-                <option value="process">Process</option>
-                </select>`;
+                                    col.elem.innerHTML = actions;
                                 }
                                 e.util.setValueToElem(col.elem, val);
                                 break;
@@ -224,31 +255,31 @@
             <!-- <button id="expand-all" class="icon-button"><i class="bi bi-plus-square"></i></button> -->
             <!-- <button id="collapse-all" class="icon-button"><i class="bi bi-dash-square"></i></button> -->
             <button
-                id="toggle-expand-all"
-                class="icon-button"
-                title="Expand/Collapse all"
+                    id="toggle-expand-all"
+                    class="icon-button"
+                    title="Expand/Collapse all"
             >
               <i class="bi bi-plus-slash-minus"></i>
             </button>
             <button
-                id="toggle-select-all"
-                class="icon-button"
-                title="(De)Select all"
+                    id="toggle-select-all"
+                    class="icon-button"
+                    title="(De)Select all"
             >
               <i class="bi bi-check2-square"></i>
             </button>
             &vert;
             <label for="filter-query">Filter:</label>
             <input
-                id="filter-query"
-                type="search"
-                placeholder="Enter search query"
-                autofocus
+                    id="filter-query"
+                    type="search"
+                    placeholder="Enter search query"
+                    autofocus
             />
             <button
-                type="button"
-                id="filter-hide"
-                title="Hide/dim unmatched nodes"
+                    type="button"
+                    id="filter-hide"
+                    title="Hide/dim unmatched nodes"
             >
               <i class="bi bi-funnel"></i>
             </button>

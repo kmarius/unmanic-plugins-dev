@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 import json
 import logging
 import os
@@ -26,6 +27,11 @@ class Settings(PluginSettings):
 settings = Settings()
 
 
+def get_valid_extensions():
+    extensions = settings.get_setting("Valid extensions ")
+    return [ext.strip() for ext in extensions.split(",")]
+
+
 def get_thread(name):
     for thread in threading.enumerate():
         if thread.name == name:
@@ -34,6 +40,15 @@ def get_thread(name):
 
 
 libraryscanner = get_thread("LibraryScannerManager")
+
+
+def have_incremental_scan():
+    try:
+        import kmarius_incremental_scan_db.lib
+        return True
+    except ImportError:
+        pass
+    return False
 
 
 def extension_valid(path, extensions):
@@ -115,8 +130,7 @@ def test_files(payload):
 
 
 def process_files(payload):
-    extensions = settings.get_setting("Valid extensions ")
-    extensions = [ext.strip() for ext in extensions.split(",")]
+    extensions = get_valid_extensions()
 
     if "arr" in payload:
         items = payload["arr"]
@@ -134,8 +148,7 @@ def process_files(payload):
 
 
 def load_subtree(path, title, id, lazy=True):
-    extensions = settings.get_setting("Valid extensions ")
-    extensions = [ext.strip() for ext in extensions.split(",")]
+    extensions = get_valid_extensions()
 
     children = []
     files = []
@@ -200,6 +213,63 @@ def get_subtree(arguments, lazy=True):
     return load_subtree(path, title, id, lazy=lazy)
 
 
+def reset_timestamps(payload):
+    try:
+        from kmarius_incremental_scan_db.lib import store_timestamp
+    except ImportError:
+        return
+
+    extensions = get_valid_extensions()
+
+    if "arr" in payload:
+        paths = [item["path"] for item in payload["arr"]]
+    else:
+        paths = [payload["path"]]
+
+    new_paths = []
+    for path in paths:
+        if os.path.isdir(path):
+            new_paths += expand_path(path)
+        else:
+            new_paths.append(path)
+    paths = [p for p in new_paths if extension_valid(p, extensions)]
+
+    for path in paths:
+        try:
+            store_timestamp(path, 0)
+        except OSError as e:
+            logger.error(f"{e}")
+
+
+def update_timestamps(payload):
+    try:
+        from kmarius_incremental_scan_db.lib import store_timestamp
+    except ImportError:
+        return
+
+    extensions = get_valid_extensions()
+
+    if "arr" in payload:
+        paths = [item["path"] for item in payload["arr"]]
+    else:
+        paths = [payload["path"]]
+
+    new_paths = []
+    for path in paths:
+        if os.path.isdir(path):
+            new_paths += expand_path(path)
+        else:
+            new_paths.append(path)
+    paths = [p for p in new_paths if extension_valid(p, extensions)]
+
+    for path in paths:
+        try:
+            info = os.stat(path)
+            store_timestamp(path, int(info.st_mtime))
+        except OSError as e:
+            logger.error(f"{e}")
+
+
 def get_libraries():
     libs = []
     for lib in Libraries().select().where(Libraries.enable_remote_only == False):
@@ -218,6 +288,8 @@ def render_frontend_panel(data):
 
     with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:
         content = file.read()
+        if have_incremental_scan():
+            content = content.replace("HAVE_INCREMENTAL_SCAN = false;", "HAVE_INCREMENTAL_SCAN = true;")
         data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
 
 
@@ -234,13 +306,17 @@ def render_plugin_api(data):
             data["content"] = get_subtree(data["arguments"], False)
         elif path == "/libraries":
             data["content"] = get_libraries()
+        elif path == "/timestamp/reset":
+            reset_timestamps(json.loads(data["body"].decode('utf-8')))
+        elif path == "/timestamp/update":
+            update_timestamps(json.loads(data["body"].decode('utf-8')))
         else:
             data["content"] = {
                 "success": False,
                 "error": f"unknown path: {data['path']}",
             }
     except Exception as e:
-        print(e)
+        logger.error(f"{e}")
         data["content"] = {
             "success": False,
             "error": str(e),
