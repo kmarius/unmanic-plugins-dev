@@ -22,7 +22,9 @@ logger = logging.getLogger("Unmanic.Plugin.kmarius_files")
 
 
 class Settings(PluginSettings):
-    settings = {}
+    settings = {
+        "Valid extensions ": ".mp4",
+    }
 
 
 settings = Settings()
@@ -36,6 +38,11 @@ def get_thread(name):
 
 
 libraryscanner = get_thread("LibraryScannerManager")
+
+
+def extension_valid(path, extensions):
+    _, ext = os.path.splitext(path)
+    return ext.lower() in extensions
 
 
 def expand_path(path):
@@ -112,6 +119,9 @@ def test_files(payload):
 
 
 def process_files(payload):
+    extensions = settings.get_setting("Valid extensions ")
+    extensions = [ext.strip() for ext in extensions.split(",")]
+
     if "arr" in payload:
         items = payload["arr"]
     else:
@@ -120,14 +130,17 @@ def process_files(payload):
     for item in items:
         if os.path.isdir(item["path"]):
             for path in expand_path(item["path"]):
-                if path.endswith(".mp4") or path.endswith(".mkv"):
+                if extension_valid(path, extensions):
                     libraryscanner.add_path_to_queue(path, item["library_id"], item['priority_score'])
         else:
-            if path.endswith(".mp4") or path.endswith(".mkv"):
+            if extension_valid(path, extensions):
                 libraryscanner.add_path_to_queue(item['path'], item["library_id"], item['priority_score'])
 
 
 def load_subtree(path, title, id, lazy=True):
+    extensions = settings.get_setting("Valid extensions ")
+    extensions = [ext.strip() for ext in extensions.split(",")]
+
     children = []
     files = []
 
@@ -149,7 +162,7 @@ def load_subtree(path, title, id, lazy=True):
                 else:
                     children.append(load_subtree(abspath, name, id, lazy=False))
             else:
-                if name.endswith(".mp4") or name.endswith(".mkv"):
+                if extension_valid(name, extensions):
                     file_info = os.stat(abspath)
                     files.append({
                         "title": name,
@@ -231,6 +244,7 @@ def render_plugin_api(data):
                 "error": f"unknown path: {data['path']}",
             }
     except Exception as e:
+        print(e)
         data["content"] = {
             "success": False,
             "error": str(e),
