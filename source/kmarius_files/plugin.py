@@ -147,7 +147,15 @@ def process_files(payload):
                 libraryscanner.add_path_to_queue(item['path'], item["library_id"], item['priority_score'])
 
 
-def load_subtree(path, title, id, lazy=True):
+def load_subtree(path, title, id, lazy=True, get_timestamps=False):
+
+    if get_timestamps:
+        try:
+            from kmarius_incremental_scan_db.lib import load_timestamp
+        except ImportError:
+            load_timestamp = None
+            get_timestamps = False
+
     extensions = get_valid_extensions()
 
     children = []
@@ -169,15 +177,19 @@ def load_subtree(path, title, id, lazy=True):
                         "folder": True,
                     })
                 else:
-                    children.append(load_subtree(abspath, name, id, lazy=False))
+                    children.append(load_subtree(abspath, name, id, lazy=False, get_timestamps=get_timestamps))
             else:
                 if extension_valid(name, extensions):
                     file_info = os.stat(abspath)
+                    timestamp = 0
+                    if get_timestamps:
+                        timestamp = load_timestamp(abspath)
                     files.append({
                         "title": name,
                         "libraryId": id,
                         "path": abspath,
                         "mtime": int(file_info.st_mtime),
+                        "timestamp": timestamp,
                         "size": int(file_info.st_size),
                         "folder": False,
                         "icon": "bi bi-film"
@@ -210,7 +222,9 @@ def get_subtree(arguments, lazy=True):
     if not path.startswith(library.path) or ".." in path:
         raise Exception("Invalid path")
 
-    return load_subtree(path, title, id, lazy=lazy)
+    get_timestamps = have_incremental_scan()
+
+    return load_subtree(path, title, id, lazy=lazy, get_timestamps=get_timestamps)
 
 
 def reset_timestamps(payload):
