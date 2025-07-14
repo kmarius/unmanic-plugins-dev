@@ -4,19 +4,15 @@ import json
 import logging
 import os
 import queue
+import threading
 import time
 import uuid
-import threading
-from operator import attrgetter
 
-from peewee import *
 from playhouse.shortcuts import model_to_dict
 from playhouse.sqliteq import SqliteQueueDatabase
-
 from unmanic.libs.filetest import FileTest, FileTesterThread
-from unmanic.libs.unplugins.settings import PluginSettings
 from unmanic.libs.library import Libraries
-import unmanic.libs.libraryscanner
+from unmanic.libs.unplugins.settings import PluginSettings
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_files")
 
