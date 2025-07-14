@@ -1,0 +1,15 @@
+{
+  "author": "kmarius",
+  "compatibility": [
+    2
+  ],
+  "description": "View and manage library files.",
+  "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+  "id": "kmarius_files",
+  "name": "Files Panel",
+  "priorities": {
+    "render_frontend_panel": 0
+  },
+  "tags": "",
+  "version": "0.0.1"
+}
