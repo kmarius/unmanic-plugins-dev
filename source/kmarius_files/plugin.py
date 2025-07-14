@@ -18,7 +18,6 @@ from unmanic.libs.unplugins.settings import PluginSettings
 from unmanic.libs.library import Libraries
 import unmanic.libs.libraryscanner
 
-# Configure plugin logger
 logger = logging.getLogger("Unmanic.Plugin.kmarius_files")
 
 
@@ -27,121 +26,6 @@ class Settings(PluginSettings):
 
 
 settings = Settings()
-profile_directory = settings.get_profile_directory()
-db_file = os.path.abspath(os.path.join(profile_directory, 'files.db'))
-db = SqliteQueueDatabase(
-    db_file,
-    use_gevent=False,
-    autostart=False,
-    queue_max_size=None,
-    results_timeout=15.0,
-    pragmas=(
-        ('foreign_keys', 1),
-        ('journal_mode', 'wal'),
-    )
-)
-
-
-class BaseModel(Model):
-    class Meta:
-        database = db
-
-    def model_to_dict(self):
-        return model_to_dict(self, backrefs=True)
-
-
-class Files(BaseModel):
-    path = TextField(primary_key=True, default='UNKNOWN')
-    name = TextField(null=False, index=True, default='UNKNOWN')
-    size = IntegerField(null=False, index=True, default=0)
-    mtime = IntegerField(null=False, index=True, default=0)
-    library = IntegerField(null=False, index=True, default=0)
-
-
-class Data(object):
-    def __init__(self):
-        self.create_db_schema()
-
-    @staticmethod
-    def db_start():
-        db.start()
-        db.connect()
-
-    @staticmethod
-    def db_stop():
-        db.close()
-        # db.stop()
-
-    @staticmethod
-    def create_db_schema():
-        Data.db_start()
-        db.create_tables([Files], safe=True)
-        Data.db_stop()
-
-    @staticmethod
-    def get_file_count():
-        return Files.select().count()
-
-    @staticmethod
-    def get_files_filtered_and_sorted(sort=[], start=0, length=None, search=None, library=None):
-        total = 0
-
-        try:
-            query = (
-                Files.select()
-            )
-
-            if search:
-                query = query.where(Files.name.contains(search))
-
-            if library:
-                query = query.where(Files.library == library)
-
-            total = query.count()
-
-            sorts = sort
-            if len(sort) == 0:
-                sorts = [{"column": "name", "asc": True}]
-
-            sort_table = Files
-
-            # TODO: allow sorting by multiple columns
-            for sort in sorts:
-                if sort["asc"]:
-                    order_by = attrgetter(sort["column"])(sort_table).asc()
-                else:
-                    order_by = attrgetter(sort["column"])(sort_table).desc()
-
-            if length:
-                query = query.order_by(order_by).offset(start).limit(length)
-
-        except Files.DoesNotExist:
-            logger.warning("No historic tasks exist yet.")
-            query = []
-
-        return query.dicts(), total
-
-    @staticmethod
-    def save_source_item(abspath, library):
-        Data.db_start()
-
-        name = os.path.basename(abspath)
-        file_info = os.stat(abspath)
-
-        try:
-            Files.insert(path=abspath, name=name, size=file_info.st_size, mtime=int(file_info.st_mtime),
-                         library=library).on_conflict('replace').execute()
-        except Exception:
-            logger.exception("Failed to save historic data to database.")
-
-        Data.db_stop()
-
-
-Data()
-
-for thread in threading.enumerate():
-    continue
-    print(f"Name: {thread.name}, ID: {thread.ident}, Daemon: {thread.daemon}")
 
 
 def get_thread(name):
@@ -151,166 +35,7 @@ def get_thread(name):
     return None
 
 
-def parse_arguments(arguments):
-    sorts = []
-    if "sort" in arguments:
-        for tok in arguments["sort"]:
-            if len(tok) == 0:
-                continue
-            tok = tok.decode('utf-8')
-            ascending = tok[0] == "+"
-            column = tok[1:]
-            sorts.append({"column": column, "asc": ascending})
-    arguments["sort"] = sorts
-    if "search" in arguments:
-        terms = arguments["search"]
-        search_value = None
-        if len(terms) > 0:
-            search_value = terms[0].decode('utf-8')
-        arguments["search"] = search_value
-    if "start" in arguments and len(arguments["start"]) > 0:
-        arguments["start"] = int(arguments["start"][0])
-    if "length" in arguments and len(arguments["length"]) > 0:
-        arguments["length"] = int(arguments["length"][0])
-    if "library" in arguments:
-        if len(arguments["library"]) > 0:
-            arguments["library"] = int(arguments["library"][0])
-        else:
-            del arguments["library"]
-    return arguments
-
-
-def get_files(arguments):
-    print(arguments)
-    arguments = parse_arguments(arguments)
-    print(arguments)
-
-    data = Data()
-    results, total = data.get_files_filtered_and_sorted(**arguments)
-    results = [file for file in results]
-    data.db_stop()
-
-    return {
-        "files": results,
-        "total": total
-    }
-
-
-def render_frontend_panel(data):
-    data["content_type"] = "text/html"
-
-    with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:
-        content = file.read()
-        data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
-
-    return
-
-
-def scan(library):
-    data = Data()
-
-    for lib in Libraries().select():
-        if library and lib.id != library:
-            continue
-        for dirpath, dirnames, filenames in os.walk(lib.path):
-            for filename in filenames:
-                if filename.endswith(".mp4") or filename.endswith(".mkv"):
-                    data.save_source_item(os.path.abspath(os.path.join(dirpath, filename)), lib.id)
-
-
-scanner = None
-
-
-def scan_libraries(arguments):
-    global scanner
-
-    if scanner is not None and scanner.is_alive():
-        print("already scanning")
-        return
-
-    library = None
-    if "library" in arguments and len(arguments["library"]) > 0:
-        library = int(arguments["library"][0])
-
-    print("scanning libraries", library)
-    scanner = threading.Thread(target=scan, args=(library,))
-    scanner.start()
-    scanner.join()
-
-
-libraryscanner = None
-
-
-def test_file_thread(elements, library_id):
-    global libraryscanner
-
-    print("tester for ", library_id)
-
-    files = queue.Queue()
-    for elem in elements:
-        print(elem["path"])
-        files.put(elem["path"])
-    event = threading.Event()
-    to_process = queue.Queue()
-
-    tester = FileTesterThread("my-file-tester", files, to_process, queue.Queue(), library_id, event)
-    tester.daemon = True
-    tester.start()
-
-    # Wait until the thread has grabbed all paths, then wait another second to ensure we don't stop it
-    # before it starts working. It will shut down afterward
-    while not files.empty():
-        event.wait(1)
-    event.wait(1)
-
-    tester.stop()
-    tester.join()
-
-    while not to_process.empty():
-        item = to_process.get()
-        libraryscanner.add_path_to_queue(item.get('path'), library_id, item.get('priority_score'))
-
-
-def test_file(payload):
-    global libraryscanner
-    if libraryscanner is None:
-        libraryscanner = get_thread("LibraryScannerManager")
-
-    if "arr" in payload:
-        elements = payload["arr"]
-    else:
-        elements = [payload]
-
-    elems_per_lib = {}
-
-    for elem in elements:
-        if not elem["library_id"] in elems_per_lib:
-            elems_per_lib[elem["library_id"]] = []
-        if os.path.isdir(elem["path"]):
-            for path in expand_path(elem["path"]):
-                elems_per_lib[elem["library_id"]].append({
-                    "path":           path,
-                    "library_id":     elem["library_id"],
-                    "library_name":   elem["library_name"],
-                    "type":           elem["type"],
-                    "priority_score": elem["priority_score"]
-                })
-        else:
-            elems_per_lib[elem["library_id"]].append(elem)
-
-    # deduplicate as expand_path can add duplicates
-    for library_id in elems_per_lib:
-        paths = set()
-        new_items = []
-        for item in elems_per_lib[library_id]:
-            if item["path"] in paths:
-                continue
-            paths.add(item["path"])
-            new_items.append(item)
-        elems_per_lib[library_id] = new_items
-
-    for library_id in elems_per_lib:
-        threading.Thread(target=test_file_thread, args=(elems_per_lib[library_id], library_id)).start()
+libraryscanner = get_thread("LibraryScannerManager")
 
 
 def expand_path(path):
@@ -321,11 +46,72 @@ def expand_path(path):
     return res
 
 
-def process_files(payload):
-    global libraryscanner
-    if libraryscanner is None:
-        libraryscanner = get_thread("LibraryScannerManager")
+def test_file_thread(items, library_id):
+    # pre-fill queue
+    files_to_test = queue.Queue()
+    for item in items:
+        files_to_test.put(item["path"])
+    files_to_process = queue.Queue()
 
+    event = libraryscanner.event
+
+    tester = FileTesterThread("my-file-tester", files_to_test, files_to_process, queue.Queue(), library_id, event)
+    tester.daemon = True
+    tester.start()
+
+    # Wait until the thread has grabbed all paths, then wait another second to ensure we don't stop it
+    # before it starts working. It will shut down afterward
+    while not files_to_test.empty():
+        event.wait(1)
+    event.wait(1)
+
+    tester.stop()
+    tester.join()
+
+    while not files_to_process.empty():
+        item = files_to_process.get()
+        libraryscanner.add_path_to_queue(item.get('path'), library_id, item.get('priority_score'))
+
+
+def test_files(payload):
+    if "arr" in payload:
+        items = payload["arr"]
+    else:
+        items = [payload]
+
+    items_per_lib = {}
+
+    for item in items:
+        if not item["library_id"] in items_per_lib:
+            items_per_lib[item["library_id"]] = []
+        if os.path.isdir(item["path"]):
+            for path in expand_path(item["path"]):
+                items_per_lib[item["library_id"]].append({
+                    "path": path,
+                    "library_id": item["library_id"],
+                    "library_name": item["library_name"],
+                    "type": item["type"],
+                    "priority_score": item["priority_score"]
+                })
+        else:
+            items_per_lib[item["library_id"]].append(item)
+
+    # deduplicate as expand_path can add duplicates
+    for id in items_per_lib:
+        paths = set()
+        new_items = []
+        for item in items_per_lib[id]:
+            if item["path"] in paths:
+                continue
+            paths.add(item["path"])
+            new_items.append(item)
+        items_per_lib[id] = new_items
+
+    for id in items_per_lib:
+        threading.Thread(target=test_file_thread, args=(items_per_lib[id], id)).start()
+
+
+def process_files(payload):
     if "arr" in payload:
         items = payload["arr"]
     else:
@@ -354,10 +140,10 @@ def load_subtree(path, title, id, lazy=True):
             if entry.is_dir():
                 if lazy:
                     children.append({
-                        "title":     name,
+                        "title": name,
                         "libraryId": id,
-                        "path":      abspath,
-                        "lazy":      True,
+                        "path": abspath,
+                        "lazy": True,
                         "folder": True,
                     })
                 else:
@@ -366,11 +152,11 @@ def load_subtree(path, title, id, lazy=True):
                 if name.endswith(".mp4") or name.endswith(".mkv"):
                     file_info = os.stat(abspath)
                     files.append({
-                        "title":     name,
+                        "title": name,
                         "libraryId": id,
-                        "path":      abspath,
-                        "mtime":     int(file_info.st_mtime),
-                        "size":      int(file_info.st_size),
+                        "path": abspath,
+                        "mtime": int(file_info.st_mtime),
+                        "size": int(file_info.st_size),
                         "folder": False,
                         "icon": "bi bi-film"
                     })
@@ -381,10 +167,10 @@ def load_subtree(path, title, id, lazy=True):
     children += files
 
     return {
-        "title":     title,
-        "children":  children,
+        "title": title,
+        "children": children,
         "libraryId": id,
-        "path":      path,
+        "path": path,
         "folder": True,
     }
 
@@ -409,13 +195,21 @@ def get_libraries():
     libs = []
     for lib in Libraries().select().where(Libraries.enable_remote_only == False):
         libs.append({
-            "title":     lib.name,
+            "title": lib.name,
             "libraryId": lib.id,
-            "path":      lib.path,
+            "path": lib.path,
             "directory": True,
-            "lazy":      True,
+            "lazy": True,
         })
     return {"children": libs}
+
+
+def render_frontend_panel(data):
+    data["content_type"] = "text/html"
+
+    with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:
+        content = file.read()
+        data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
 
 
 def render_plugin_api(data):
@@ -423,21 +217,10 @@ def render_plugin_api(data):
     data['content_type'] = 'application/json'
     try:
         path = data["path"]
-        if path in ['scan', '/scan', '/scan/']:
-            scan_libraries(data["arguments"])
-            data["content"]["success"] = True
-        elif path in ['query', '/query', '/query/']:
-            data['content'] = json.dumps(get_files(data["arguments"]))
-        elif path == "/test":
-            test_file(json.loads(data["body"].decode('utf-8')))
-            data["content"] = {
-                "success": True,
-            }
-        elif path in ['/process']:
+        if path == "/test":
+            test_files(json.loads(data["body"].decode('utf-8')))
+        elif path == '/process':
             process_files(json.loads(data["body"].decode('utf-8')))
-            data["content"] = {
-                "success": True,
-            }
         elif path == '/subtree':
             data["content"] = get_subtree(data["arguments"], False)
         elif path == "/libraries":
@@ -445,18 +228,17 @@ def render_plugin_api(data):
         else:
             data["content"] = {
                 "success": False,
-                "error":   f"unknown path: {data['path']}",
+                "error": f"unknown path: {data['path']}",
             }
     except Exception as e:
-        print(e)
         data["content"] = {
             "success": False,
-            "error":   str(e),
+            "error": str(e),
         }
 
     end_time = time.time()
     elapsed = end_time - start_time
     path = data["path"]
-    print(f"{path} {int(elapsed * 1000)}ms")
+    logger.info(f"{path} {int(elapsed * 1000)}ms")
 
     return data
