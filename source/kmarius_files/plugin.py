@@ -23,7 +23,7 @@ logger = logging.getLogger("Unmanic.Plugin.kmarius_files")
 
 class Settings(PluginSettings):
     settings = {
-        "Valid extensions ": ".mp4",
+        "Valid extensions ": ".mp4,.mkv,.webm",
     }
 
 
