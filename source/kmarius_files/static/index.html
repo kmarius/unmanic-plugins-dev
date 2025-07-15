@@ -79,6 +79,36 @@
             return `${year}-${month}-${day} ${hours}:${minutes}`;
         }
 
+        function fakeUpdateTimestamps(nodes) {
+            let visited = new Set();
+            let callback = node => {
+                if (visited.has(node))
+                    return;
+                visited.add(node);
+                node.data["timestamp"] = node.data["mtime"];
+                node.update();
+            }
+            nodes.forEach(e => {
+                callback(e);
+                e.visit(callback);
+            });
+        }
+
+        function fakeResetTimestamps(nodes) {
+            let visited = new Set();
+            let callback = node => {
+                if (visited.has(node))
+                    return;
+                visited.add(node);
+                node.data["timestamp"] = null;
+                node.update();
+            }
+            nodes.forEach(e => {
+                callback(e);
+                e.visit(callback);
+            });
+        }
+
         async function processMultiple(nodes, operation) {
             let arr = nodes.map(node => {
                 return {
@@ -119,6 +149,8 @@
                         },
                         body: JSON.stringify(payload)
                     });
+                    fakeUpdateTimestamps(nodes);
+                    //mar10.Wunderbaum.getTree("files").render();
                     break;
                 case "reset-timestamp":
                     await fetch('/unmanic/plugin_api/kmarius_files/timestamp/reset', {
@@ -128,6 +160,8 @@
                         },
                         body: JSON.stringify(payload)
                     });
+                    fakeResetTimestamps(nodes);
+                    //mar10.Wunderbaum.getTree("files").render();
                     break;
             }
         }
@@ -220,8 +254,10 @@
                         switch (col.id) {
                             case "mtime":
                                 col.elem.textContent = formatTimeSinceEpoch(node.data[col.id]);
-                                if ("timestamp" in node.data && node.data["timestamp"] !== node.data["mtime"]) {
-                                    col.elem.classList.toggle("make-it-red", true);
+                                if ("mtime" in node.data) {
+                                    // dont highlight non-files
+                                    let hi = "timestamp" in node.data && node.data["timestamp"] !== node.data["mtime"];
+                                    col.elem.classList.toggle("make-it-red", hi);
                                 }
                                 break
                             case "size":
