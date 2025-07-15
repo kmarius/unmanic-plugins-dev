@@ -33,11 +33,13 @@
         const HAVE_INCREMENTAL_SCAN = false;
 
         const actions_default = `<select tabindex="-1">
+                <option value="reload">Reload</option>
                 <option value="test">Test</option>
                 <option value="process">Process</option>
                 </select>`;
 
         const actions_extended = `<select tabindex="-1">
+                <option value="reload">Reload</option>
                 <option value="test">Test</option>
                 <option value="process">Process</option>
                 <option value="reset-timestamp">Reset Timestamp</option>
@@ -94,6 +96,70 @@
             });
         }
 
+        async function updateSubtree(root) {
+            if (root.isUnloaded()) {
+                return root.loadLazy();
+            }
+
+            let expanded = new Set();
+            let selected = new Set();
+            let root_expanded = root.isExpanded();
+            let root_selected = root.isSelected();
+
+            root.visit(node => {
+                if (node.isExpanded()) {
+                    expanded.add(node.data.path);
+                }
+                if (node.isSelected()) {
+                    selected.add(node.data.path);
+                }
+            });
+
+            root.resetLazy();
+            return root.loadLazy(true).then(() => {
+                    if (root_expanded)
+                        root.setExpanded(true);
+                    if (root_selected)
+                        root.setSelected(true);
+                    root.visit((node) => {
+                        if (expanded.has(node.data.path))
+                            node.setExpanded(true);
+                        if (selected.has(node.data.path))
+                            node.setSelected(true);
+                    });
+                }
+            );
+        }
+
+        async function updateSubtrees(roots) {
+            let new_roots = new Set();
+            for (const root of roots) {
+                if (root.hasChildren()) {
+                    // todo: we really should check whether we are dealing with a directory here
+                    new_roots.add(root);
+                } else {
+                    if (root.isUnloaded()) {
+                        new_roots.add(root);
+                    } else {
+                        let parent = root.getParent();
+                        if (parent) {
+                            new_roots.add(parent);
+                        }
+                        // else: empty tree
+                    }
+                }
+            }
+
+            // todo: we can do better as there could now be new parent-childrens in this set
+
+            for (let root of new_roots) {
+                await updateSubtree(root);
+            }
+
+            //let promises = [...new_roots].map(updateSubtree);
+            //await Promise.all(promises);
+        }
+
         function fakeResetTimestamps(nodes) {
             let visited = new Set();
             let callback = node => {
@@ -123,6 +189,9 @@
                 arr: arr
             };
             switch (operation) {
+                case "reload":
+                    updateSubtrees(nodes);
+                    break;
                 case "test":
                     await fetch('/unmanic/plugin_api/kmarius_files/test', {
                         method: 'POST',
@@ -150,7 +219,6 @@
                         body: JSON.stringify(payload)
                     });
                     fakeUpdateTimestamps(nodes);
-                    //mar10.Wunderbaum.getTree("files").render();
                     break;
                 case "reset-timestamp":
                     await fetch('/unmanic/plugin_api/kmarius_files/timestamp/reset', {
@@ -161,8 +229,9 @@
                         body: JSON.stringify(payload)
                     });
                     fakeResetTimestamps(nodes);
-                    //mar10.Wunderbaum.getTree("files").render();
                     break;
+                default:
+                    console.log(`unrecognized action: ${operation}`);
             }
         }
 
@@ -242,7 +311,11 @@
                     e.inputElem.selectedIndex = -1;
 
                     const tree = mar10.Wunderbaum.getTree("files");
-                    const selectedNodes = tree.getSelectedNodes();
+
+                    // we only need to reload parents, this makes it much easier actually
+                    let stopOnParents = value === "reload";
+
+                    const selectedNodes = tree.getSelectedNodes(stopOnParents);
 
                     const nodes = selectedNodes.length > 0 ? selectedNodes : [node];
                     return await processMultiple(nodes, value);
