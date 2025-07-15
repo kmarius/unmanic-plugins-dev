@@ -148,12 +148,11 @@ def process_files(payload):
 
 
 def load_subtree(path, title, id, lazy=True, get_timestamps=False):
-
     if get_timestamps:
         try:
-            from kmarius_incremental_scan_db.lib import load_timestamp
+            from kmarius_incremental_scan_db.lib import load_timestamp, load_timestamps
         except ImportError:
-            load_timestamp = None
+            
             get_timestamps = False
 
     extensions = get_valid_extensions()
@@ -181,22 +180,25 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
             else:
                 if extension_valid(name, extensions):
                     file_info = os.stat(abspath)
-                    timestamp = 0
-                    if get_timestamps:
-                        timestamp = load_timestamp(abspath)
                     files.append({
                         "title": name,
                         "libraryId": id,
                         "path": abspath,
                         "mtime": int(file_info.st_mtime),
-                        "timestamp": timestamp,
                         "size": int(file_info.st_size),
                         "folder": False,
                         "icon": "bi bi-film"
                     })
 
+
     children.sort(key=lambda c: c["title"])
     files.sort(key=lambda c: c["title"])
+
+    # getting timestamps in bulk makes the operation >5 times faster
+    if get_timestamps:
+        paths = [file["path"] for file in files]
+        for i, timestamp in enumerate(load_timestamps(paths)):
+            files[i]['timestamp'] = timestamp
 
     children += files
 
@@ -229,7 +231,7 @@ def get_subtree(arguments, lazy=True):
 
 def reset_timestamps(payload):
     try:
-        from kmarius_incremental_scan_db.lib import store_timestamp
+        from kmarius_incremental_scan_db.lib import store_timestamps
     except ImportError:
         return
 
@@ -240,24 +242,21 @@ def reset_timestamps(payload):
     else:
         paths = [payload["path"]]
 
-    new_paths = []
+    distinct = set()
     for path in paths:
         if os.path.isdir(path):
-            new_paths += expand_path(path)
+            for p in expand_path(path):
+                distinct.add(p)
         else:
-            new_paths.append(path)
-    paths = [p for p in new_paths if extension_valid(p, extensions)]
+            distinct.add(path)
+    values = [(path, 0) for path in distinct if extension_valid(path, extensions)]
 
-    for path in paths:
-        try:
-            store_timestamp(path, 0)
-        except OSError as e:
-            logger.error(f"{e}")
+    store_timestamps(values)
 
 
 def update_timestamps(payload):
     try:
-        from kmarius_incremental_scan_db.lib import store_timestamp
+        from kmarius_incremental_scan_db.lib import store_timestamps
     except ImportError:
         return
 
@@ -268,20 +267,24 @@ def update_timestamps(payload):
     else:
         paths = [payload["path"]]
 
-    new_paths = []
+    distinct = set()
     for path in paths:
         if os.path.isdir(path):
-            new_paths += expand_path(path)
+            for p in expand_path(path):
+                distinct.add(p)
         else:
-            new_paths.append(path)
-    paths = [p for p in new_paths if extension_valid(p, extensions)]
+            distinct.add(path)
+    paths = [path for path in distinct if extension_valid(path, extensions)]
 
+    values = []
     for path in paths:
         try:
             info = os.stat(path)
-            store_timestamp(path, int(info.st_mtime))
+            values.append((path, int(info.st_mtime)))
         except OSError as e:
             logger.error(f"{e}")
+
+    store_timestamps(values)
 
 
 def get_libraries():
