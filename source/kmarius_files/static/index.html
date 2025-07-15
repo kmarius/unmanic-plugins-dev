@@ -164,23 +164,17 @@
                     tree.toggleSelect();
                 });
 
-            var columns = [
-                {id: "*", title: "Path", width: "500px"},
-                {id: "size", title: "Size", width: "100px", classes: "wb-helper-end"},
-                {id: "mtime", title: "Modification", width: "160px", classes: "wb-helper-end"},
-                {id: "action", title: "Action", width: "80px"},
-            ];
-
-            if (HAVE_INCREMENTAL_SCAN) {
-                columns.splice(3, 0, {id: "timestamp", title: "Timestamp", width: "160px", classes: "wb-helper-end"});
-            }
-
             new mar10.Wunderbaum({
                 id: "files",
                 element: document.getElementById("file-tree"),
                 source: {url: '/unmanic/plugin_api/kmarius_files/libraries'},
                 types: {},
-                columns: columns,
+                columns: [
+                    {id: "*", title: "Path", width: "500px"},
+                    {id: "size", title: "Size", width: "100px", classes: "wb-helper-end"},
+                    {id: "mtime", title: "Modification", width: "160px", classes: "wb-helper-end"},
+                    {id: "action", title: "Action", width: "80px"},
+                ],
                 columnsResizable: true,
                 columnsSortable: true,
                 header: "Select Tree",
@@ -226,11 +220,7 @@
                         switch (col.id) {
                             case "mtime":
                                 col.elem.textContent = formatTimeSinceEpoch(node.data[col.id]);
-                                break
-                            case "timestamp":
-                                col.elem.textContent = formatTimeSinceEpoch(node.data[col.id]);
-                                let mtime = node.data["mtime"];
-                                if (mtime && node.data["timestamp"] !== mtime) {
+                                if ("timestamp" in node.data && node.data["timestamp"] !== node.data["mtime"]) {
                                     col.elem.classList.toggle("make-it-red", true);
                                 }
                                 break
