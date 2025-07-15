@@ -257,7 +257,7 @@
                 },
                 expand: function (e) {
                     // we expand nodes with only one child
-                    if (e.flag && e.node.children.length == 1) {
+                    if (e.flag && e.node.children && e.node.children.length === 1) {
                         e.node.children[0].setExpanded();
                     }
                 }
