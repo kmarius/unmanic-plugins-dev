@@ -342,6 +342,6 @@ def render_plugin_api(data):
     end_time = time.time()
     elapsed = end_time - start_time
     path = data["path"]
-    logger.info(f"{path} {int(elapsed * 1000)}ms")
+    # logger.info(f"{path} {int(elapsed * 1000)}ms")
 
     return data
