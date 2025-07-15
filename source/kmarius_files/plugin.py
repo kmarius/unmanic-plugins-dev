@@ -173,7 +173,7 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
                         "libraryId": id,
                         "path": abspath,
                         "lazy": True,
-                        "folder": True,
+                        "type": "folder",
                     })
                 else:
                     children.append(load_subtree(abspath, name, id, lazy=False, get_timestamps=get_timestamps))
@@ -186,10 +186,8 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
                         "path": abspath,
                         "mtime": int(file_info.st_mtime),
                         "size": int(file_info.st_size),
-                        "folder": False,
                         "icon": "bi bi-film"
                     })
-
 
     children.sort(key=lambda c: c["title"])
     files.sort(key=lambda c: c["title"])
@@ -207,7 +205,7 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
         "children": children,
         "libraryId": id,
         "path": path,
-        "folder": True,
+        "type": "folder",
     }
 
 
@@ -294,7 +292,7 @@ def get_libraries():
             "title": lib.name,
             "libraryId": lib.id,
             "path": lib.path,
-            "directory": True,
+            "type": "folder",
             "lazy": True,
         })
     return {"children": libs}

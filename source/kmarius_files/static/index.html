@@ -136,18 +136,14 @@
         async function updateSubtrees(roots) {
             let new_roots = new Set();
             for (const root of roots) {
-                if (root.hasChildren()) {
-                    // todo: we really should check whether we are dealing with a directory here
+                if (root.isUnloaded()) {
+                    new_roots.add(root);
+                } else if (root.type == "folder") {
                     new_roots.add(root);
                 } else {
-                    if (root.isUnloaded()) {
-                        new_roots.add(root);
-                    } else {
-                        let parent = root.getParent();
-                        if (parent) {
-                            new_roots.add(parent);
-                        }
-                        // else: empty tree
+                    let parent = root.getParent();
+                    if (parent) {
+                        new_roots.add(parent);
                     }
                 }
             }
@@ -155,7 +151,10 @@
             // todo: we can do better as there could now be new parent-childrens in this set
 
             for (let root of new_roots) {
-                await updateSubtree(root);
+                // node could be invalidated by another update
+                if (root.title !== undefined) {
+                    await updateSubtree(root);
+                }
             }
 
             //let promises = [...new_roots].map(updateSubtree);
@@ -249,6 +248,7 @@
             });
         }
 
+
         document.addEventListener("DOMContentLoaded", () => {
             toggleButtonCreate("#filter-hide", (e, flag) => {
                 const tree = mar10.Wunderbaum.getTree("files");
@@ -282,7 +282,7 @@
                     tree.toggleSelect();
                 });
 
-            new mar10.Wunderbaum({
+            let tree = new mar10.Wunderbaum({
                 id: "files",
                 element: document.getElementById("file-tree"),
                 source: {url: '/unmanic/plugin_api/kmarius_files/libraries'},
@@ -374,7 +374,7 @@
                     if (e.flag && e.node.children && e.node.children.length === 1) {
                         e.node.children[0].setExpanded();
                     }
-                }
+                },
             });
         });
     </script>
