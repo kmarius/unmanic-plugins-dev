@@ -101,6 +101,8 @@
                 return root.loadLazy();
             }
 
+            console.log("updateing ", root.title);
+
             let expanded = new Set();
             let selected = new Set();
             let root_expanded = root.isExpanded();
@@ -261,6 +263,19 @@
                     expanded = !expanded;
                 });
             document
+                .querySelector("#reload-tree")
+                .addEventListener("click", async (e) => {
+                    const tree = mar10.Wunderbaum.getTree("files");
+                    let roots = [];
+                    for (let child of tree.root.children) {
+                        if (!child.isUnloaded()) {
+                            roots.push(child);
+                        }
+                    }
+                    if (roots.length > 0)
+                        await updateSubtrees(roots);
+                });
+            document
                 .querySelector("#toggle-select-all")
                 .addEventListener("click", (e) => {
                     const tree = mar10.Wunderbaum.getTree("files");
@@ -405,6 +420,9 @@
             </button>
             <button type="button" id="filter-next" title="Show next match">
               <i class="bi bi-chevron-down"></i>
+            </button>
+            <button type="button" id="reload-tree" title="Reload tree">
+              <i class="bi bi-arrow-clockwise"></i>
             </button>
             &nbsp;
             <output id="filter-match-info" class="hide-on-welcome hidden"
