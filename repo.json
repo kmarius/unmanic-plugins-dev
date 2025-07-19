@@ -1,0 +1,178 @@
+{
+    "repo": {
+        "id": "repository.kmarius_dev",
+        "name": "kmarius dev repo",
+        "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+        "repo_data_directory": "https://raw.githubusercontent.com/kmarius/unmanic-plugins-dev/repo/",
+        "repo_data_url": "https://raw.githubusercontent.com/kmarius/unmanic-plugins-dev/repo/repo.json"
+    },
+    "plugins": [
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Removes metadata from streams and the file itself.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_metadata_handler",
+            "name": "Metadata Handler",
+            "priorities": {
+                "on_library_management_file_test": 0
+            },
+            "tags": "library file test",
+            "version": "0.0.1"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Removes all data streams.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_data_handler",
+            "name": "Data Handler",
+            "priorities": {
+                "on_library_management_file_test": 0
+            },
+            "tags": "library file test",
+            "version": "0.0.1"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Library of utilities for plugins.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius",
+            "name": "Kmarius Library",
+            "priorities": {
+                "on_library_management_file_test": 0
+            },
+            "tags": "",
+            "version": "0.0.1"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Extracts english subtitles and removes all subtitle streams.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_subtitle_handler",
+            "name": "Subtitle Handler",
+            "priorities": {
+                "on_library_management_file_test": 0,
+                "on_worker_process": 0
+            },
+            "tags": "library file test,subtitle",
+            "version": "0.0.1"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Transcodes video streams to AVC and reduces excessively large bitrates.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_video_handler",
+            "name": "Video Handler",
+            "priorities": {
+                "on_library_management_file_test": 0
+            },
+            "tags": "library file test",
+            "version": "0.0.2"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Check that the MOOV atom is at the front.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_faststart",
+            "name": "Faststart Handler",
+            "priorities": {
+                "on_library_management_file_test": 0
+            },
+            "tags": "library file test",
+            "version": "0.0.1"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Removes all attachment streams.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_attachment_handler",
+            "name": "Attachment Handler",
+            "priorities": {
+                "on_library_management_file_test": 0
+            },
+            "tags": "library file test",
+            "version": "0.0.1"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "View and manage library files.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_files",
+            "name": "Files Panel",
+            "priorities": {
+                "render_frontend_panel": 0
+            },
+            "tags": "",
+            "version": "0.0.3"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Transcodes audio to AAC, removes non-english streams.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_audio_handler",
+            "name": "Audio Handler",
+            "priorities": {
+                "on_library_management_file_test": 0
+            },
+            "tags": "library file test",
+            "version": "0.0.1"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Execute actions as requested by the different handlers.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_executor",
+            "name": "Executor",
+            "priorities": {
+                "on_library_management_file_test": 0,
+                "on_worker_process": 0
+            },
+            "tags": "ffmpeg",
+            "version": "0.0.1"
+        },
+        {
+            "author": "kmarius",
+            "compatibility": [
+                2
+            ],
+            "description": "Changes container to MP4.",
+            "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+            "id": "kmarius_container_handler",
+            "name": "Container Handler",
+            "priorities": {
+                "on_library_management_file_test": 0
+            },
+            "tags": "library file test",
+            "version": "0.0.1"
+        }
+    ]
+}

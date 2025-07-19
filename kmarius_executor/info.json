@@ -1,0 +1,16 @@
+{
+  "author": "kmarius",
+  "compatibility": [
+    2
+  ],
+  "description": "Execute actions as requested by the different handlers.",
+  "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+  "id": "kmarius_executor",
+  "name": "Executor",
+  "priorities": {
+    "on_library_management_file_test": 0,
+    "on_worker_process": 0
+  },
+  "tags": "ffmpeg",
+  "version": "0.0.1"
+}
