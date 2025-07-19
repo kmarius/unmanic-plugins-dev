@@ -40,7 +40,7 @@ def _get_bitrate(stream_info, path):
     output = subprocess.run(cmd, capture_output=True)
     stream_index = stream_info["index"]
     for line in str(output.stdout).split("\\n"):
-        if line.startswith(f"Statistics for track number {stream_index}:"):
+        if line.startswith(f"Statistics for track number {stream_index + 1}:"):
             return int(line.split()[-1])
     return None
 
