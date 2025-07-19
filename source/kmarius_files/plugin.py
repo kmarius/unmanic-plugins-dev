@@ -106,6 +106,9 @@ def test_file_thread(items, library_id, num_threads=1):
         event.wait(1)
 
     for thread in threads:
+        thread.stop()
+
+    for thread in threads:
         thread.join()
 
     while not files_to_process.empty():
