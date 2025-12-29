@@ -8,7 +8,7 @@ logger = logging.getLogger("Unmanic.Plugin.kmarius_flac_metadata_cleaner")
 
 # Vorbis comment keys are case-insensitive; mutagen stores them uppercase
 # TODO: make configurable
-tags_to_remove = ["COMMENT", "DESCRIPTION"]
+tags_to_remove = ["COMMENT", "SUPPLIER", "ENCODED BY", "DESCRIPTION"]
 
 
 def on_library_management_file_test(data):
