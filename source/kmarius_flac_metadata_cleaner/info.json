@@ -9,8 +9,8 @@
   "name": "FLAC Metadata Cleaner",
   "priorities": {
     "on_library_management_file_test": 10,
-    "on_worker_process": 1
+    "on_worker_process": 10
   },
   "tags": "library file test",
-  "version": "0.0.4"
+  "version": "0.0.5"
 }

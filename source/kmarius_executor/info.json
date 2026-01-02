@@ -8,9 +8,9 @@
   "id": "kmarius_executor",
   "name": "Executor",
   "priorities": {
-    "on_library_management_file_test": 0,
-    "on_worker_process": 0
+    "on_library_management_file_test": 50,
+    "on_worker_process": 50
   },
   "tags": "ffmpeg",
-  "version": "0.0.1"
+  "version": "0.0.2"
 }
