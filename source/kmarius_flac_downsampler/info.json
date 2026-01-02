@@ -8,9 +8,9 @@
   "id": "kmarius_flac_downsampler",
   "name": "FLAC Downsampler",
   "priorities": {
-    "on_library_management_file_test": 0,
-    "on_worker_process": 0
+    "on_library_management_file_test": 1,
+    "on_worker_process": 10
   },
   "tags": "library file test",
-  "version": "0.0.1"
+  "version": "0.0.2"
 }
