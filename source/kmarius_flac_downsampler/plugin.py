@@ -50,8 +50,9 @@ def on_worker_process(data):
     sample_fmt = settings.get_setting('target_sample_fmt')
 
     data['exec_command'] = ['ffmpeg', '-i', data.get('file_in'),
-                            '-sample_fmt', sample_fmt, '-ar', str(sample_rate),
                             '-map', '0', '-map_metadata', '0',
+                            '-c:v', 'copy',  # keep album covers as is
+                            '-sample_fmt', sample_fmt, '-ar', str(sample_rate),
                             data.get('file_out')]
 
     return data
