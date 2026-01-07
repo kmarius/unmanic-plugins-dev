@@ -48,7 +48,8 @@ def on_worker_process(data):
     path = data.get("file_in")
 
     metadata = MP3(path)
-    for tag in metadata.keys():
+    keys = list(metadata.keys())
+    for tag in keys:
         for prefix in tag_prefixes:
             tag.startswith(prefix)
             del metadata[tag]
