@@ -23,6 +23,7 @@ def on_library_management_file_test(data):
     settings = Settings(library_id=data.get('library_id'))
     tag_prefixes = settings.get_setting('tag_prefixes').split(",")
     tag_prefixes = [tag.strip() for tag in tag_prefixes]
+    tag_prefixes = [tag for tag in tag_prefixes if tag != ""]
 
     path = data.get("path")
 
@@ -44,6 +45,7 @@ def on_worker_process(data):
     settings = Settings(library_id=data.get('library_id'))
     tag_prefixes = settings.get_setting('tag_prefixes').split(",")
     tag_prefixes = [tag.strip() for tag in tag_prefixes]
+    tag_prefixes = [tag for tag in tag_prefixes if tag != ""]
 
     path = data.get("file_in")
 
@@ -51,9 +53,9 @@ def on_worker_process(data):
     keys = list(metadata.keys())
     for tag in keys:
         for prefix in tag_prefixes:
-            tag.startswith(prefix)
-            del metadata[tag]
-            break
+            if tag.startswith(prefix):
+                del metadata[tag]
+                break
     metadata.save()
 
     return data
