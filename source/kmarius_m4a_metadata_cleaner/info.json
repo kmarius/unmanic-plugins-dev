@@ -1,0 +1,16 @@
+{
+  "author": "kmarius",
+  "compatibility": [
+    2
+  ],
+  "description": "Removes metadata from M4A files.",
+  "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
+  "id": "kmarius_m4a_metadata_cleaner",
+  "name": "M4A Metadata Cleaner",
+  "priorities": {
+    "on_library_management_file_test": 10,
+    "on_worker_process": 10
+  },
+  "tags": "library file test",
+  "version": "0.0.1"
+}
