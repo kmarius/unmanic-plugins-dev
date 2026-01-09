@@ -54,7 +54,7 @@ def on_worker_process(data):
     sample_rate = settings.get_setting('target_sample_rate')
     sample_fmt = settings.get_setting('target_sample_fmt')
 
-    _, ext = os.path.splitext(data.get("path"))
+    _, ext = os.path.splitext(data.get("file_in"))
     if ext.lower() != ".flac":
         return data
 
