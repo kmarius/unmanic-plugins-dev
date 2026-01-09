@@ -52,7 +52,7 @@ def store_timestamp(library_id, path, mtime):
     cur = conn.cursor()
     cur.execute('''
                 INSERT INTO timestamps (library_id, path, mtime)
-                VALUES (?, ?, ?) ON CONFLICT(path) DO
+                VALUES (?, ?, ?) ON CONFLICT(library_id, path) DO
                 UPDATE SET
                     mtime = excluded.mtime
                 ''', (library_id, path, mtime))
@@ -65,7 +65,7 @@ def store_timestamps(values):
     cur = conn.cursor()
     cur.executemany('''
                     INSERT INTO timestamps (library_id, path, mtime)
-                    VALUES (?, ?, ?) ON CONFLICT(path) DO
+                    VALUES (?, ?, ?) ON CONFLICT(library_id, path) DO
                     UPDATE SET
                         mtime = excluded.mtime
                     ''', values)
