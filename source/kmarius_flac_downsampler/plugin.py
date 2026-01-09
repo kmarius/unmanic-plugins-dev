@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import logging
+import os
 
 from kmarius_flac_downsampler.lib.ffmpeg import Probe
 from unmanic.libs.unplugins.settings import PluginSettings
@@ -28,6 +29,10 @@ def on_library_management_file_test(data):
     thresh = settings.get_setting('sample_rate_threshold')
 
     path = data.get("path")
+    _, ext = os.path.splitext(path).lower()
+    if ext != ".flac":
+        return data
+
     probe = Probe(logger, allowed_mimetypes=['audio'])
     if not probe.file(path):
         return None
@@ -48,6 +53,10 @@ def on_worker_process(data):
     settings = Settings(library_id=data.get('library_id'))
     sample_rate = settings.get_setting('target_sample_rate')
     sample_fmt = settings.get_setting('target_sample_fmt')
+
+    _, ext = os.path.splitext(data.get("path")).lower()
+    if ext != ".flac":
+        return data
 
     data['exec_command'] = ['ffmpeg', '-i', data.get('file_in'),
                             '-map', '0', '-map_metadata', '0',

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import logging
+import os
+
 from mutagen.mp3 import MP3
 from unmanic.libs.unplugins.settings import PluginSettings
 
@@ -26,6 +28,9 @@ def on_library_management_file_test(data):
     tag_prefixes = [tag for tag in tag_prefixes if tag != ""]
 
     path = data.get("path")
+    _, ext = os.path.splitext(path).lower()
+    if ext != ".m4a":
+        return data
 
     metadata = MP3(path)
     for tag in metadata.keys():
@@ -48,6 +53,9 @@ def on_worker_process(data):
     tag_prefixes = [tag for tag in tag_prefixes if tag != ""]
 
     path = data.get("file_in")
+    _, ext = os.path.splitext(path).lower()
+    if ext != ".m4a":
+        return data
 
     metadata = MP3(path)
     keys = list(metadata.keys())

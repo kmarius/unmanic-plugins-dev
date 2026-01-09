@@ -25,6 +25,9 @@ def on_library_management_file_test(data):
     tags_to_remove = [tag.strip() for tag in tags_to_remove]
 
     path = data.get("path")
+    _, ext = os.path.splitext(path).lower()
+    if ext != ".m4a":
+        return data
 
     metadata = MP4(path)
     for tag in tags_to_remove:
@@ -45,6 +48,9 @@ def on_worker_process(data):
     tags_to_remove = [tag.strip() for tag in tags_to_remove]
 
     path = data.get("file_in")
+    _, ext = os.path.splitext(path).lower()
+    if ext != ".m4a":
+        return data
 
     metadata = MP4(path)
     for tag in tags_to_remove:
