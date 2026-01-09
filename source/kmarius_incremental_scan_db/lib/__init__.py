@@ -83,6 +83,7 @@ def load_timestamp(library_id, path):
     return mtime
 
 
+# we only allow batch loading with fixed library_id
 def load_timestamps(library_id, paths):
     conn = get_connection()
     with conn:

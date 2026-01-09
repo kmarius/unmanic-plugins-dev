@@ -91,7 +91,8 @@ def test_file_thread(items, library_id, num_threads=1):
     threads = []
 
     for i in range(num_threads):
-        tester = FileTesterThread(f"kmarius-file-tester-{library_id}-{i}", files_to_test, files_to_process, queue.Queue(),
+        tester = FileTesterThread(f"kmarius-file-tester-{library_id}-{i}", files_to_test, files_to_process,
+                                  queue.Queue(),
                                   library_id, event)
         tester.daemon = True
         tester.start()
@@ -205,11 +206,11 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
             if entry.is_dir():
                 if lazy:
                     children.append({
-                        "title":     name,
+                        "title": name,
                         "libraryId": id,
-                        "path":      abspath,
-                        "lazy":      True,
-                        "type":      "folder",
+                        "path": abspath,
+                        "lazy": True,
+                        "type": "folder",
                     })
                 else:
                     children.append(load_subtree(abspath, name, id, lazy=False, get_timestamps=get_timestamps))
@@ -217,12 +218,12 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
                 if extension_valid(name, extensions):
                     file_info = os.stat(abspath)
                     files.append({
-                        "title":     name,
+                        "title": name,
                         "libraryId": id,
-                        "path":      abspath,
-                        "mtime":     int(file_info.st_mtime),
-                        "size":      int(file_info.st_size),
-                        "icon":      "bi bi-film"
+                        "path": abspath,
+                        "mtime": int(file_info.st_mtime),
+                        "size": int(file_info.st_size),
+                        "icon": "bi bi-film"
                     })
 
     children.sort(key=lambda c: c["title"])
@@ -231,17 +232,17 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
     # getting timestamps in bulk makes the operation >5 times faster
     if get_timestamps:
         paths = [file["path"] for file in files]
-        for i, timestamp in enumerate(load_timestamps(paths)):
+        for i, timestamp in enumerate(load_timestamps(id, paths)):
             files[i]['timestamp'] = timestamp
 
     children += files
 
     return {
-        "title":     title,
-        "children":  children,
+        "title": title,
+        "children": children,
         "libraryId": id,
-        "path":      path,
-        "type":      "folder",
+        "path": path,
+        "type": "folder",
     }
 
 
@@ -272,18 +273,18 @@ def reset_timestamps(payload):
     extensions = get_valid_extensions()
 
     if "arr" in payload:
-        paths = [item["path"] for item in payload["arr"]]
+        items = [(item["library_id"], item["path"]) for item in payload["arr"]]
     else:
-        paths = [payload["path"]]
+        items = [(payload["library_id"], payload["path"])]
 
     distinct = set()
-    for path in paths:
+    for library_id, path in items:
         if os.path.isdir(path):
             for p in expand_path(path):
-                distinct.add(p)
+                distinct.add((library_id, p))
         else:
-            distinct.add(path)
-    values = [(path, 0) for path in distinct if extension_valid(path, extensions)]
+            distinct.add((library_id, path))
+    values = [(library_id, path, 0) for library_id, path in distinct if extension_valid(path, extensions)]
 
     store_timestamps(values)
 
@@ -297,24 +298,24 @@ def update_timestamps(payload):
     extensions = get_valid_extensions()
 
     if "arr" in payload:
-        paths = [item["path"] for item in payload["arr"]]
+        items = [(item["library_id"], item["path"]) for item in payload["arr"]]
     else:
-        paths = [payload["path"]]
+        items = [(payload["library_id"], payload["path"])]
 
     distinct = set()
-    for path in paths:
+    for library_id, path in items:
         if os.path.isdir(path):
             for p in expand_path(path):
-                distinct.add(p)
+                distinct.add((library_id, p))
         else:
-            distinct.add(path)
-    paths = [path for path in distinct if extension_valid(path, extensions)]
+            distinct.add((library_id, path))
+    items = [(library_id, path) for library_id, path in distinct if extension_valid(path, extensions)]
 
     values = []
-    for path in paths:
+    for library_id, path in items:
         try:
             info = os.stat(path)
-            values.append((path, int(info.st_mtime)))
+            values.append((library_id, path, int(info.st_mtime)))
         except OSError as e:
             logger.error(f"{e}")
 
@@ -325,11 +326,11 @@ def get_libraries(lazy=True):
     libs = []
     for lib in Libraries().select().where(Libraries.enable_remote_only == False):
         libs.append({
-            "title":     lib.name,
+            "title": lib.name,
             "libraryId": lib.id,
-            "path":      lib.path,
-            "type":      "folder",
-            "lazy":      lazy,
+            "path": lib.path,
+            "type": "folder",
+            "lazy": lazy,
         })
 
     return {
@@ -350,7 +351,7 @@ def render_frontend_panel(data):
 def render_plugin_api(data):
     start_time = time.time()
     data['content_type'] = 'application/json'
-    
+
     try:
         path = data["path"]
         if path == "/test":
@@ -368,15 +369,15 @@ def render_plugin_api(data):
         else:
             data["content"] = {
                 "success": False,
-                "error":   f"unknown path: {data['path']}",
+                "error": f"unknown path: {data['path']}",
             }
     except Exception as e:
         trace = traceback.format_exc()
         logger.error(trace)
         data["content"] = {
             "success": False,
-            "error":   str(e),
-            "trace":   trace,
+            "error": str(e),
+            "trace": trace,
         }
 
     end_time = time.time()
