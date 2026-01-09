@@ -29,7 +29,7 @@ def on_library_management_file_test(data):
 
     path = data.get("path")
     _, ext = os.path.splitext(path)
-    if ext.lower() != ".m4a":
+    if ext.lower() != ".mp3":
         return data
 
     metadata = MP3(path)
@@ -54,7 +54,7 @@ def on_worker_process(data):
 
     path = data.get("file_in")
     _, ext = os.path.splitext(path)
-    if ext.lower() != ".m4a":
+    if ext.lower() != ".mp3":
         return data
 
     metadata = MP3(path)
