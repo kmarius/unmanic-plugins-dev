@@ -37,5 +37,9 @@ def on_library_management_file_test(data):
 
     if stored_timestamp == disk_timestamp:
         data['add_file_to_pending_tasks'] = False
+        data["issues"].append({
+            'id': "kmarius_incremental_scan",
+            'message': f"file unchanged: {path}"
+        })
 
     return data
