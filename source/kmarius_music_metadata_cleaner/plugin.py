@@ -86,7 +86,7 @@ def on_library_management_file_test(data):
 def on_worker_process(data):
     settings = Settings(library_id=data.get('library_id'))
 
-    path = data.get("path")
+    path = data.get("file_in")
     _, ext = os.path.splitext(path)
     ext = ext.lower()
 
