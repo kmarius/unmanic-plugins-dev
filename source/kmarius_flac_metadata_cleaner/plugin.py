@@ -28,8 +28,8 @@ def on_library_management_file_test(data):
     tags_to_remove = [tag.strip() for tag in tags_to_remove]
 
     path = data.get("path")
-    _, ext = os.path.splitext(path).lower()
-    if ext != ".flac":
+    _, ext = os.path.splitext(path)
+    if ext.lower() != ".flac":
         return data
 
     metadata = FLAC(path)
@@ -51,8 +51,8 @@ def on_worker_process(data):
     tags_to_remove = [tag.strip() for tag in tags_to_remove]
 
     path = data.get("file_in")
-    _, ext = os.path.splitext(path).lower()
-    if ext != ".flac":
+    _, ext = os.path.splitext(path)
+    if ext.lower() != ".flac":
         return data
 
     metadata = FLAC(path)

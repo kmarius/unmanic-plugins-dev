@@ -28,8 +28,8 @@ def on_library_management_file_test(data):
     tag_prefixes = [tag for tag in tag_prefixes if tag != ""]
 
     path = data.get("path")
-    _, ext = os.path.splitext(path).lower()
-    if ext != ".m4a":
+    _, ext = os.path.splitext(path)
+    if ext.lower() != ".m4a":
         return data
 
     metadata = MP3(path)
@@ -53,8 +53,8 @@ def on_worker_process(data):
     tag_prefixes = [tag for tag in tag_prefixes if tag != ""]
 
     path = data.get("file_in")
-    _, ext = os.path.splitext(path).lower()
-    if ext != ".m4a":
+    _, ext = os.path.splitext(path)
+    if ext.lower() != ".m4a":
         return data
 
     metadata = MP3(path)
