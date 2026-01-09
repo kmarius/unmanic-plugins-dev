@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import logging
+import os
+
 from mutagen.mp4 import MP4
 from unmanic.libs.unplugins.settings import PluginSettings
 
