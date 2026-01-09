@@ -4,7 +4,7 @@ import logging
 import os
 from mutagen.flac import FLAC
 from mutagen.mp3 import MP3
-from mutagen.MP4 import MP4
+from mutagen.mp4 import MP4
 from unmanic.libs.unplugins.settings import PluginSettings
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_music_metadata_cleaner")
