@@ -29,16 +29,13 @@ def on_library_management_file_test(data):
     if settings.get_setting('ignore_timestamps'):
         return data
 
+    library_id = data.get('library_id')
     path = data.get("path")
     file_stat = os.stat(path)
     disk_timestamp = int(file_stat.st_mtime)
-    stored_timestamp = load_timestamp(path)
+    stored_timestamp = load_timestamp(library_id, path)
 
     if stored_timestamp == disk_timestamp:
         data['add_file_to_pending_tasks'] = False
-        data["issues"].append({
-            'id': "kmarius_incremental_scan",
-            'message': f"file unchanged: {path}"
-        })
 
     return data
