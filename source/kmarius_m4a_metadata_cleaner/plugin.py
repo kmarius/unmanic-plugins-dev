@@ -55,9 +55,12 @@ def on_worker_process(data):
         return data
 
     metadata = MP4(path)
+    modified = False
     for tag in tags_to_remove:
         if tag in metadata:
             del metadata[tag]
-    metadata.save()
+            modified = True
+    if modified:
+        metadata.save()
 
     return data
