@@ -58,6 +58,7 @@ def on_library_management_file_test(data):
 
 def on_worker_process(data):
     settings = Settings(library_id=data.get('library_id'))
+    thresh = settings.get_setting('sample_rate_threshold')
     sample_rate = settings.get_setting('target_sample_rate')
     sample_fmt = settings.get_setting('target_sample_fmt')
 
@@ -73,6 +74,8 @@ def on_worker_process(data):
     for stream_info in probe.get('streams', {}):
         if 'sample_rate' in stream_info:
             current_sample_rate = int(stream_info['sample_rate'])
+            if current_sample_rate <= thresh:
+                return data
             if current_sample_rate % 44100 == 0:
                 sample_rate = 44100
             elif current_sample_rate % 48000 == 0:
