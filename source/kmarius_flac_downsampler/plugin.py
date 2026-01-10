@@ -16,11 +16,18 @@ class Settings(PluginSettings):
         "sample_rate_threshold": 48000,
     }
     form_settings = {
-        "tags_to_remove": {
-            "target_sample_rate": "Target sample rate",
-            "target_sample_fmt": "Sample format (see `ffmpeg -sample_fmts`)",
-            "sample_rate_threshold": "Sample rate threshold; rates higher than this will be downsampled",
+        "target_sample_rate": {
+            "label": "Fallback sample rate",
+            "description": "Sample rate to use if the input is not a multiple of 48000 or 44100."
         },
+        "target_sample_fmt": {
+            "label": "Sample format",
+            "description": "See `ffmpeg -sample_fmts`",
+        },
+        "sample_rate_threshold": {
+            "label": "Sample rate threshold; ",
+            "description": "Rates higher than this value will be downsampled."
+        }
     }
 
 
@@ -54,13 +61,27 @@ def on_worker_process(data):
     sample_rate = settings.get_setting('target_sample_rate')
     sample_fmt = settings.get_setting('target_sample_fmt')
 
-    _, ext = os.path.splitext(data.get("file_in"))
+    path = data.get('file_in')
+    _, ext = os.path.splitext(path)
     if ext.lower() != ".flac":
         return data
 
-    data['exec_command'] = ['ffmpeg', '-i', data.get('file_in'),
+    probe = Probe(logger, allowed_mimetypes=['audio'])
+    if not probe.file(path):
+        return data
+
+    for stream_info in probe.get('streams', {}):
+        if 'sample_rate' in stream_info:
+            current_sample_rate = int(stream_info['sample_rate'])
+            if current_sample_rate % 44100 == 0:
+                sample_rate = 44100
+            elif current_sample_rate % 48000 == 0:
+                sample_rate = 48000
+
+    data['exec_command'] = ['ffmpeg', '-i', path,
                             '-map', '0', '-map_metadata', '0',
                             '-c:v', 'copy',  # keep album covers as is
+                            "-af", "aresample=resampler=soxr",
                             '-sample_fmt', sample_fmt, '-ar', str(sample_rate),
                             data.get('file_out')]
 
