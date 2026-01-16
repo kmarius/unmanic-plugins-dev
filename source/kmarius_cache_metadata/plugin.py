@@ -7,12 +7,12 @@ import os
 from unmanic.libs.unplugins.settings import PluginSettings
 from typing import Optional
 
-try:
-    from lib import exists, lookup, put, cacher, init_database
-    from lib.plugin_types import *
-except ImportError:
-    from kmarius_cache_metadata.lib import exists, lookup, put, cacher, init_database
-    from kmarius_cache_medadata.lib.plugin_types import *
+# try:
+#     from lib import exists, lookup, put, cacher, init_database
+#     from lib.plugin_types import *
+# except ImportError:
+from kmarius_cache_metadata.lib import exists, lookup, put, cacher, init_database
+from kmarius_cache_medadata.lib.plugin_types import *
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_cache_metadata")
 
@@ -70,7 +70,8 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
         res = lookup(identifier, path, disk_timestamp)
 
         if res is None:
-            logger.info(f"No cached {identifier} data found, refreshing - {path}")
+            logger.info(
+                f"No cached {identifier} data found, refreshing - {path}")
             res = c.run_prog(path)
         else:
             logger.info(f"Cached {identifier} data found - {path}")
