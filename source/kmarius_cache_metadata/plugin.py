@@ -7,12 +7,12 @@ import os
 from unmanic.libs.unplugins.settings import PluginSettings
 from typing import Optional
 
-# try:
-#     from lib import exists, lookup, put, cacher, init_database
-#     from lib.plugin_types import *
-# except ImportError:
-from kmarius_cache_metadata.lib import exists, lookup, put, cacher, init_database
-from kmarius_cache_medadata.lib.plugin_types import *
+try:
+    from kmarius_cache_metadata.lib import exists, lookup, put, cacher, init_database
+    from kmarius_cache_metadata.lib.plugin_types import *
+except ImportError:
+    from lib import exists, lookup, put, cacher, init_database
+    from plugin_types import *
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_cache_metadata")
 
