@@ -57,6 +57,7 @@ def put(table: str, path: str, mtime: int, data: dict):
                 UPDATE SET
                     (mtime, data) = (excluded.mtime, excluded.data)
                 ''', (path, mtime, json.dumps(data)))
+    conn.commit()
     conn.close()
 
 
