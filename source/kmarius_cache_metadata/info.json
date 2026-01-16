@@ -1,16 +1,17 @@
 {
-    "author": "kmarius",
-    "compatibility": [
-        2
-    ],
-    "description": "",
-    "icon": "",
-    "id": "kmarius_cache_metadata",
-    "name": "Cache Metadata",
-    "priorities": {
-        "on_library_management_file_test": 0,
-        "on_postprocessor_task_results": 0
-    },
-    "tags": "",
-    "version": "0.0.2"
+  "author": "kmarius",
+  "compatibility": [
+    2
+  ],
+  "description": "",
+  "icon": "",
+  "id": "kmarius_cache_metadata",
+  "name": "Cache Metadata",
+  "priorities": {
+    "on_library_management_file_test": 0,
+    "on_postprocessor_task_results": 0
+  },
+  "tags": "",
+  "version": "0.0.3"
 }
+
