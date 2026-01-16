@@ -9,7 +9,7 @@ from typing import Optional
 
 try:
     from kmarius_cache_metadata.lib import exists, lookup, put, cacher, init_database
-    from kmarius_cache_metadata.lib.plugin_types import *
+    from kmarius_cache_metadata.plugin_types import *
 except ImportError:
     from lib import exists, lookup, put, cacher, init_database
     from plugin_types import *
