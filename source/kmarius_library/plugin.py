@@ -52,7 +52,7 @@ class Settings(PluginSettings):
         }
 
         settings.update({
-            p.setting_name(): True for p in PROVIDERS
+            p.setting_name(): p.default_enabled for p in PROVIDERS
         })
 
         form_settings.update({

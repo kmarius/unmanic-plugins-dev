@@ -13,6 +13,8 @@ class MetadataProvider:
     name = "None"
     """Used as table name and field name in the shared data dict"""
 
+    default_enabled = False
+
     @staticmethod
     def run_prog(path: str) -> Optional[dict]:
         raise NotImplementedError()
@@ -24,6 +26,7 @@ class MetadataProvider:
 
 class FFProbeProvider(MetadataProvider):
     name = "ffprobe"
+    default_enabled = True
 
     @staticmethod
     def run_prog(path: str) -> Optional[dict]:
@@ -35,6 +38,7 @@ class FFProbeProvider(MetadataProvider):
 
 class MediaInfoProvider(MetadataProvider):
     name = "mediainfo"
+    default_enabled = False
 
     @staticmethod
     def run_prog(path: str) -> Optional[dict]:
