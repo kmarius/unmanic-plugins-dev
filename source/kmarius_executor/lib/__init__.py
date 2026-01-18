@@ -1,4 +1,5 @@
-from kmarius.lib.ffmpeg import Probe
+from kmarius_executor.lib.ffmpeg import Probe
+
 
 def streams_from_probe(probe):
     streams = {
