@@ -22,11 +22,12 @@ try:
 except ImportError:
     from plugin_types import *
 
-# Configure plugin logger
-logger = logging.getLogger("Unmanic.Plugin.kmarius_schedule_scans")
-
 PLUGIN_ID = "kmarius_schedule_scans"
 THREAD_NAME = "kmarius-schedule-scans"
+
+# Configure plugin logger
+logger = logging.getLogger(f"Unmanic.Plugin.{PLUGIN_ID}")
+
 
 
 class StoppableThread(threading.Thread):
@@ -168,11 +169,6 @@ def _reschedule_thread():
             thread.stop()
             thread.join()
     StoppableThread(target=_scheduler_main, name=THREAD_NAME).start()
-
-
-def render_plugin_api(data: PluginApiData):
-    data["content"] = {"plugin_loaded": True}
-    data["content_type"] = "application/json"
 
 
 logger.info("Plugin (re-)loaded.")
