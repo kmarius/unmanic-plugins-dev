@@ -32,6 +32,7 @@ class Settings(PluginSettings):
             "ignored_path_patterns":    "",
             "allowed_extensions":       '',
             "incremental_scan_enabled": True,
+            "quiet_incremental_scan":   False,
             "caching_enabled":          True,
         }
         form_settings = {
@@ -45,6 +46,11 @@ class Settings(PluginSettings):
             },
             "incremental_scan_enabled": {
                 "label": "Enable incremental scans (ignore unchanged files)",
+            },
+            "quiet_incremental_scan":   {
+                "label":       "Don't spam the logs with unchanged files.",
+                'display':     'hidden',
+                "sub_setting": True,
             },
             "caching_enabled":          {
                 "label": "Enable metadata caching"
@@ -76,11 +82,12 @@ class Settings(PluginSettings):
             # FIXME: in staging, settings_configured is not populated at this point and the corresponding method is private
             self._PluginSettings__import_configured_settings()
         if self.settings_configured:
-            caching_enabled = self.settings_configured.get("caching_enabled")
-            if caching_enabled:
+            if self.settings_configured.get("caching_enabled"):
                 for setting, val in form_settings.items():
                     if setting.startswith("cache_"):
                         del val["display"]
+            if self.settings_configured.get("incremental_scan_enabled"):
+                del form_settings["quiet_incremental_scan"]["display"]
         return form_settings
 
 
@@ -164,11 +171,12 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
 
     if settings.get_setting("incremental_scan_enabled"):
         if is_file_unchanged(library_id, path):
+            if not settings.get_setting("quiet_incremental_scan"):
+                data["issues"].append({
+                    'id':      "kmarius_library",
+                    'message': f"unchanged: {path}, library_id={library_id}"
+                })
             data['add_file_to_pending_tasks'] = False
-            data["issues"].append({
-                'id':      "kmarius_library",
-                'message': f"file unchanged: {path}, library_id={library_id}"
-            })
             return data
         data["shared_info"]["kmarius_library"]["incremental_scan"][library_id] = True
 
@@ -188,7 +196,6 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
                 logger.info(f"Cached {p.name} data found - {path}")
 
             if res:
-                logger.info(f"Set shared {p.name} data - {path}")
                 data["shared_info"][p.name] = res
                 cache.put(p.name, path, mtime, res)
 
