@@ -5,7 +5,7 @@ import logging
 import os
 import subprocess
 
-from kmarius.lib import lazy_init
+from kmarius_executor.lib import lazy_init
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_faststart_handler")
 

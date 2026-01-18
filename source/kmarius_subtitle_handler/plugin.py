@@ -23,8 +23,8 @@ import logging
 import re
 import os
 
-from kmarius.lib import lazy_init
-from kmarius.lib.ffmpeg import StreamMapper, Parser, Probe
+from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib.ffmpeg import StreamMapper, Parser, Probe
 from unmanic.libs.unplugins.settings import PluginSettings
 
 # Configure plugin logger

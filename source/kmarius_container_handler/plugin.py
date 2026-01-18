@@ -3,7 +3,7 @@
 
 import logging
 
-from kmarius.lib import lazy_init
+from kmarius_executor.lib import lazy_init
 import os
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_container_handler")

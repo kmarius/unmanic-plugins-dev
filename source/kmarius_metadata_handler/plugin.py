@@ -6,8 +6,7 @@ import logging
 import subprocess
 import shutil
 
-from kmarius.lib import lazy_init
-from kmarius.lib.ffmpeg import Probe
+from kmarius_executor.lib import lazy_init
 
 # Configure plugin logger
 logger = logging.getLogger("Unmanic.Plugin.kmarius_metadata_handler")

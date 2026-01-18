@@ -4,8 +4,8 @@
 import logging
 import os
 
-from kmarius.lib import lazy_init
-from kmarius.lib.ffmpeg import StreamMapper, Parser
+from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib.ffmpeg import StreamMapper, Parser
 
 # Configure plugin logger
 logger = logging.getLogger("Unmanic.Plugin.kmarius_executor")

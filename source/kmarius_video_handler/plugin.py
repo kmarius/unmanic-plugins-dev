@@ -5,7 +5,7 @@ import logging
 import subprocess
 import re
 
-from kmarius.lib import lazy_init
+from kmarius_executor.lib import lazy_init
 from unmanic.libs.unplugins.settings import PluginSettings
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_video_handler")
@@ -74,7 +74,8 @@ def video_stream_mapping(stream_info, idx, path, target_bitrate, bitrate_cutoff)
         }
 
     if needs_encoding(stream_info, path, bitrate_cutoff):
-        stream_encoding = [f'-c:v:{idx}', "libx264", "-pix_fmt", "yuv420p", f"-b:v:{idx}", f"{target_bitrate}"]
+        stream_encoding = [f'-c:v:{idx}', "libx264", "-pix_fmt",
+                           "yuv420p", f"-b:v:{idx}", f"{target_bitrate}"]
         return {
             'stream_mapping': ['-map', '0:v:{}'.format(idx)],
             'stream_encoding': stream_encoding,
@@ -94,7 +95,8 @@ def on_library_management_file_test(data):
     video_mappings = {}
 
     for idx, stream_info in enumerate(video_streams):
-        mapping = video_stream_mapping(stream_info, idx, data.get('path'), target_bitrate, bitrate_cutoff)
+        mapping = video_stream_mapping(stream_info, idx, data.get(
+            'path'), target_bitrate, bitrate_cutoff)
         if mapping:
             video_mappings[idx] = mapping
 
