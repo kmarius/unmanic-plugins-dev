@@ -25,9 +25,9 @@ def init(tables: list[str]):
         os.makedirs(os.path.dirname(DB_PATH))
 
     conn = _get_connection()
-    cursor = conn.cursor()
+    cur = conn.cursor()
     for table in tables:
-        cursor.execute(f'''
+        cur.execute(f'''
                        CREATE TABLE IF NOT EXISTS {table} (
                            path TEXT PRIMARY KEY,
                            mtime INTEGER NOT NULL,

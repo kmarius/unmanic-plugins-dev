@@ -6,11 +6,11 @@
   "description": "Execute actions as requested by the different handlers.",
   "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
   "id": "kmarius_executor",
-  "name": "Executor",
+  "name": "FFmpeg Executor",
   "priorities": {
     "on_library_management_file_test": 50,
     "on_worker_process": 50
   },
   "tags": "ffmpeg",
-  "version": "0.0.2"
+  "version": "0.0.3"
 }

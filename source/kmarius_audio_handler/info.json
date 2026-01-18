@@ -6,10 +6,11 @@
   "description": "Transcodes audio to AAC, removes non-english streams.",
   "icon": "https://avatars.githubusercontent.com/u/5224719?s=96&v=4",
   "id": "kmarius_audio_handler",
-  "name": "Audio Handler",
+  "name": "FFmpeg Audio Handler",
   "priorities": {
     "on_library_management_file_test": 0
   },
   "tags": "library file test",
-  "version": "0.0.1"
+  "version": "0.0.2"
 }
+
