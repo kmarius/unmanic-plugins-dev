@@ -29,7 +29,6 @@ THREAD_NAME = "kmarius-schedule-scans"
 logger = logging.getLogger(f"Unmanic.Plugin.{PLUGIN_ID}")
 
 
-
 class StoppableThread(threading.Thread):
     """Thread class with a stop() method. The thread itself has to check
     regularly for the stopped() condition."""
@@ -69,7 +68,7 @@ class Settings(PluginSettings):
                     "label": f"Enable scans for library '{lib.name}'",
                 },
                 f"cron_{lib.id}_time":    {
-                    "label":       f"Scan time(s) for library '{lib.name}' (format: hh:mm,[hh:mm],...)",
+                    "label":       f"Scan time(s) for library '{lib.name}' (format: hh:mm[,hh:mm]...)",
                     "sub_setting": True,
                     # unhidden in get_form_settings(), if scanner is enabled
                     "display":     "hidden"
