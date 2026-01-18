@@ -15,7 +15,7 @@ def on_library_management_file_test(data):
     library_id = data["library_id"]
     if data["shared_info"]["kmarius_library"]["incremental_scan"][library_id]:
         path = data["path"]
-        mtime = os.path.getmtime(path)
+        mtime = int(os.path.getmtime(path))
         logger.info(f"Updating timestamp path={path} library_id={library_id} to {mtime}")
         timestamps.put(library_id, path, mtime)
     return data
