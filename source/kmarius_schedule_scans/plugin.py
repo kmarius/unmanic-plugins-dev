@@ -145,7 +145,7 @@ def _scheduler_main():
 
     if len(sched.jobs) == 0:
         logger.info("No jobs scheduled, stopping thread.")
-        thread.stop()
+        return
 
     while not thread.stopped():
         sched.run_pending()
@@ -159,10 +159,10 @@ def _scheduler_main():
 
         if len(plugins_handler.get_plugin_list_filtered_and_sorted(plugin_id=PLUGIN_ID, length=1)) == 0:
             logger.info("Plugin was uninstalled, stopping thread.")
-            thread.stop()
+            return
 
 
-def _reschedule_thread():
+def _restart_scheduler_thread():
     for thread in threading.enumerate():
         if thread.name == THREAD_NAME and hasattr(thread, "stop"):
             thread.stop()
@@ -171,4 +171,4 @@ def _reschedule_thread():
 
 
 logger.info("Plugin (re-)loaded.")
-_reschedule_thread()
+_restart_scheduler_thread()
