@@ -31,7 +31,7 @@ if settings.get_setting("test_failed_tasks"):
     def file_failed_in_history(self, path):
         return False
 
-
+    logger.info("Patching FileTest.file_failed_in_history")
     FileTest.file_failed_in_history = file_failed_in_history
 
 
