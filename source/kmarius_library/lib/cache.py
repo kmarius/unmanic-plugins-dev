@@ -78,3 +78,25 @@ def put(table: str, path: str, mtime: int, data: dict):
                 ''', (path, mtime, json.dumps(data)))
     conn.commit()
     conn.close()
+
+
+def get_all_paths(table: str) -> list[str]:
+    conn = _get_connection()
+    cur = conn.cursor()
+    cur.execute(f'''SELECT path FROM {table}''')
+    paths = [path[0] for path in cur.fetchall()]
+    conn.close()
+    return paths
+
+
+def remove_paths(table: str, paths: list[str]):
+    conn = _get_connection()
+    cur = conn.cursor()
+    for path in paths:
+        cur.execute(f'''
+                    DELETE
+                    FROM {table}
+                    WHERE path = ?
+                    ''', (path,))
+    conn.commit()
+    conn.close()

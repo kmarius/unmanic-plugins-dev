@@ -62,7 +62,7 @@ def put(library_id: int, path: str, mtime: int):
     conn.close()
 
 
-def store_timestamps(values: list[(int, str, int)]):
+def put_many(values: list[(int, str, int)]):
     conn = _get_connection()
     cur = conn.cursor()
     cur.executemany('''
@@ -86,7 +86,7 @@ def get(library_id: int, path: str):
 
 
 # we only allow batch loading with fixed library_id
-def load_timestamps(library_id: int, paths: list[str]):
+def get_many(library_id: int, paths: list[str]):
     conn = _get_connection()
     with conn:
         cur = conn.cursor()
@@ -99,3 +99,35 @@ def load_timestamps(library_id: int, paths: list[str]):
             mtimes.append(row[0] if row else None)
     conn.close()
     return mtimes
+
+
+def get_all_paths(library_id: int = None) -> list[str]:
+    conn = _get_connection()
+    cur = conn.cursor()
+    if library_id:
+        cur.execute('''
+                    SELECT path
+                    FROM timestamps
+                    WHERE library_id = ?
+                    ''', (library_id,))
+    else:
+        cur.execute('''SELECT DISTINCT path
+                       FROM timestamps''')
+    paths = [path[0] for path in cur.fetchall()]
+    conn.close()
+    return paths
+
+
+def remove_paths(library_id: int, paths: list[str]):
+    conn = _get_connection()
+    cur = conn.cursor()
+    # one by one is good enough for now, I don't think we can use CTEs from python
+    for path in paths:
+        cur.execute('''
+                    DELETE
+                    FROM timestamps
+                    WHERE library_id = ?
+                      AND path = ?
+                    ''', (library_id, path))
+    conn.commit()
+    conn.close()

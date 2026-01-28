@@ -6,6 +6,7 @@ import os
 import queue
 import re
 import threading
+import time
 import traceback
 import uuid
 from typing import Mapping, Optional, override
@@ -428,7 +429,7 @@ def load_subtree(path: str, title: str, library_id: int, lazy=True, get_timestam
     # getting timestamps in bulk makes the operation >5 times faster
     if get_timestamps:
         paths = [file["path"] for file in files]
-        for i, timestamp in enumerate(timestamps.load_timestamps(library_id, paths)):
+        for i, timestamp in enumerate(timestamps.get_many(library_id, paths)):
             files[i]['timestamp'] = timestamp
 
     children += files
@@ -474,7 +475,7 @@ def reset_timestamps(payload: dict):
     values = [(library_id, path, 0) for library_id, path in distinct if
               is_extension_allowed(library_id, path)]
 
-    timestamps.store_timestamps(values)
+    timestamps.put_many(values)
 
 
 def update_timestamps(payload: dict):
@@ -500,7 +501,7 @@ def update_timestamps(payload: dict):
         except OSError as e:
             logger.error(f"{e}")
 
-    timestamps.store_timestamps(values)
+    timestamps.put_many(values)
 
 
 def get_libraries(lazy=True) -> dict:
@@ -517,6 +518,59 @@ def get_libraries(lazy=True) -> dict:
     return {
         "children": libs,
     }
+
+
+prune_lock = threading.Lock()
+
+
+def prune_database(payload: dict):
+    if not prune_lock.acquire(blocking=False):
+        logger.info("Could not acquire lock, is a pruning operation already in progress?")
+        return
+
+    library_ids = []
+    # we only prune metadata after pruning all libraries
+    prune_metadata = True
+
+    if "library_id" in payload:
+        library_ids.append(payload["library_id"])
+        prune_metadata = False
+    else:
+        for lib in Libraries().select().where(Libraries.enable_remote_only == False):
+            library_ids.append(lib.id)
+
+    num_pruned = 0
+    for library_id in library_ids:
+        logger.info(f"Pruning library {library_id}")
+
+        paths = []
+        for path in timestamps.get_all_paths(library_id):
+            if not is_extension_allowed(library_id, path) or is_path_ignored(library_id, path) or not os.path.exists(path):
+                paths.append(path)
+
+        timestamps.remove_paths(library_id, paths)
+
+        num_pruned += len(paths)
+    logger.info(f"Pruned {num_pruned} paths")
+
+
+
+    if prune_metadata:
+        # we don't care whether caching is enabled for a library or not
+        # we prune all items, that are in no library
+
+        num_pruned = 0
+        all_paths = set(timestamps.get_all_paths())
+        for p in PROVIDERS:
+            paths = []
+            for path in cache.get_all_paths(p.name):
+                if not path in all_paths:
+                    paths.append(path)
+            cache.remove_paths(p.name, paths)
+            num_pruned += len(paths)
+        logger.info(f"Pruned {num_pruned} metadata items")
+
+    prune_lock.release()
 
 
 def render_frontend_panel(data: PanelData):
@@ -545,6 +599,13 @@ def render_plugin_api(data: PluginApiData) -> PluginApiData:
             reset_timestamps(json.loads(data["body"].decode('utf-8')))
         elif path == "/timestamp/update":
             update_timestamps(json.loads(data["body"].decode('utf-8')))
+        elif path == "/prune":
+            body = data["body"].decode('utf-8')
+            if body.startswith("{"):
+                payload = json.loads(body)
+            else:
+                payload = {}
+            threading.Thread(target=prune_database, args=(payload,)).start()
         else:
             data["content"] = {
                 "success": False,

@@ -28,6 +28,18 @@
             background-color: #f8d7da;
         }
 
+        .flex-container-h {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .left-span {
+        }
+
+        .right-span {
+        }
+
     </style>
     <script>
         const ENABLE_EXTENDED_ACTIONS = true;
@@ -248,7 +260,6 @@
             });
         }
 
-
         document.addEventListener("DOMContentLoaded", () => {
             toggleButtonCreate("#filter-hide", (e, flag) => {
                 const tree = mar10.Wunderbaum.getTree("files");
@@ -261,6 +272,19 @@
                     const tree = mar10.Wunderbaum.getTree("files");
                     tree.expandAll(!expanded);
                     expanded = !expanded;
+                });
+            document
+                .querySelector("#prune-database")
+                .addEventListener("click", async (e) => {
+                    await fetch('/unmanic/plugin_api/kmarius_library/prune', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            // library_id: 1
+                        })
+                    });
                 });
             document
                 .querySelector("#reload-tree")
@@ -345,13 +369,14 @@
                                 col.elem.textContent = formatTimeSinceEpoch(node.data[col.id]);
                                 break
                             case "timestamp":
-                                if (node.data[col.id] == "0") {
-                                    col.elem.textContent = "null";
-                                } else {
-                                    col.elem.textContent = formatTimeSinceEpoch(node.data[col.id]);
-                                }
-                                if ("mtime" in node.data) {
-                                    // we don't highlight non-files (these don't have mtime)
+                                let is_file = "mtime" in node.data;
+                                if (is_file) {
+                                    if (node.data[col.id] === 0 || node.data[col.id] == undefined) {
+                                        col.elem.textContent = "none";
+                                    } else {
+                                        col.elem.textContent = formatTimeSinceEpoch(node.data[col.id]);
+                                    }
+
                                     let hi = "timestamp" in node.data && node.data["timestamp"] !== node.data["mtime"];
                                     col.elem.classList.toggle("make-it-red", hi);
                                 }
@@ -388,10 +413,8 @@
     </script>
 </head>
 <div class="flex-container">
-    <section class="header">
-        <output id="demo-info" class="hide-on-welcome hint"></output>
-        <!-- <hr> -->
-        <span id="demo-controls" class="hide-on-welcome hidden">
+    <section class="header flex-container-h">
+        <span id="demo-controls" class="hide-on-welcome hidden left-span">
             <!-- <button id="expand-all" class="icon-button"><i class="bi bi-plus-square"></i></button> -->
             <!-- <button id="collapse-all" class="icon-button"><i class="bi bi-dash-square"></i></button> -->
             <button
@@ -437,6 +460,11 @@
             >&nbsp;</output
             >
           </span>
+        <span id="database-controls" class="right-span">
+        <button type="button" id="prune-database" title="Prune database">
+            <i class="bi bi-database-check"></i>
+        </button>
+        </span>
     </section>
 
     <main class="view">
