@@ -1,25 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import json
 import os
+import queue
 import re
+import threading
+import traceback
+import uuid
+from typing import Mapping, Optional, override
 
+from unmanic.libs.libraryscanner import LibraryScannerManager
+from unmanic.libs.filetest import FileTesterThread
+from unmanic.libs.library import Libraries
 from unmanic.libs.unplugins.settings import PluginSettings
-
-from typing import Optional, override
-
-from .lib.metadata_provider import MetadataProvider
-
-try:
-    from kmarius_library import logger
-    from kmarius_library.lib import cache, timestamps
-    from kmarius_library.lib.metadata_provider import PROVIDERS
-    from kmarius_library.plugin_types import *
-except ImportError:
-    from . import logger
-    from lib import cache, timestamps
-    from lib.metadata_provider import PROVIDERS
-    from plugin_types import *
+from kmarius_library import logger
+from kmarius_library.lib import cache, timestamps
+from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
+from kmarius_library.plugin_types import *
 
 cache.init([p.name for p in PROVIDERS])
 timestamps.init()
@@ -91,6 +89,32 @@ class Settings(PluginSettings):
         return form_settings
 
 
+allowed_extensions = {}
+ignored_path_patterns = {}
+
+
+def get_allowed_extensions(library_id: int) -> list[str]:
+    if library_id not in allowed_extensions:
+        settings = Settings(library_id=library_id)
+        extensions = settings.get_setting("allowed_extensions").split(",")
+        extensions = [ext.strip().lstrip(".") for ext in extensions]
+        allowed_extensions[library_id] = extensions
+    return allowed_extensions[library_id]
+
+
+def get_ignored_path_patterns(library_id: int) -> list[re.Pattern]:
+    if library_id not in ignored_path_patterns:
+        settings = Settings(library_id=library_id)
+        patterns = []
+        for regex_pattern in settings.get_setting("ignored_path_patterns").splitlines():
+            regex_pattern = regex_pattern.strip()
+            if regex_pattern != "":
+                pattern = re.compile(regex_pattern)
+                patterns.append(pattern)
+        ignored_path_patterns[library_id] = patterns
+    return ignored_path_patterns[library_id]
+
+
 def update_cached_metadata(providers: list[MetadataProvider], path: str):
     try:
         mtime = int(os.path.getmtime(path))
@@ -117,20 +141,17 @@ def update_timestamp(library_id: int, path: str):
         logger.error(e)
 
 
-def is_extension_allowed(path: str, settings: Settings) -> bool:
-    allowed_extensions = settings.get_setting('allowed_extensions').split(',')
-    ext = os.path.splitext(path)[-1][1:].lower()
-    if ext and ext in allowed_extensions:
+def is_extension_allowed(library_id: int, path: str) -> bool:
+    extensions = get_allowed_extensions(library_id)
+    ext = os.path.splitext(path)[-1]
+    if ext and ext[1:].lower() in extensions:
         return True
     return False
 
 
-def is_path_ignored(path: str, settings: Settings) -> bool:
-    regex_patterns = settings.get_setting('ignored_path_patterns')
-    for regex_pattern in regex_patterns.splitlines():
-        if not regex_pattern:
-            continue
-        pattern = re.compile(regex_pattern.strip())
+def is_path_ignored(library_id: int, path: str) -> bool:
+    regex_patterns = get_ignored_path_patterns(library_id)
+    for pattern in regex_patterns:
         if pattern.search(path):
             return True
     return False
@@ -144,7 +165,7 @@ def is_file_unchanged(library_id: int, path: str) -> bool:
     return False
 
 
-def init_shared_data(data):
+def init_shared_data(data: dict):
     if not "shared_info" in data:
         data["shared_info"] = {}
     shared_info = data["shared_info"]
@@ -159,11 +180,11 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
     path = data["path"]
     library_id = data["library_id"]
 
-    if not is_extension_allowed(path, settings):
+    if not is_extension_allowed(library_id, path):
         data['add_file_to_pending_tasks'] = False
         return data
 
-    if is_path_ignored(path, settings):
+    if is_path_ignored(library_id, path):
         data['add_file_to_pending_tasks'] = False
         return data
 
@@ -218,10 +239,324 @@ def on_postprocessor_task_results(data: TaskResultData) -> Optional[TaskResultDa
                     metadata_providers.append(p)
 
         for path in data["destination_files"]:
-            if is_extension_allowed(path, settings):
+            if is_extension_allowed(library_id, path):
                 if caching_enabled:
                     update_cached_metadata(metadata_providers, path)
                 if incremental_scan_enabled:
                     # TODO: it could be desirable to not add this file to the db and have it checked again
                     update_timestamp(library_id, path)
+    return data
+
+
+def get_thread(name: str) -> Optional[threading.Thread]:
+    for thread in threading.enumerate():
+        if thread.name == name:
+            return thread
+    return None
+
+
+def get_libraryscanner() -> LibraryScannerManager:
+    return get_thread("LibraryScannerManager")
+
+
+def expand_path(path: str) -> list[str]:
+    res = []
+    for dirpath, dirnames, filenames in os.walk(path):
+        for filename in filenames:
+            res.append(os.path.join(dirpath, filename))
+    return res
+
+
+def get_library_paths() -> Mapping[int, str]:
+    paths = {}
+    for lib in Libraries().select().where(Libraries.enable_remote_only == False):
+        paths[lib.id] = lib.path
+    return paths
+
+
+def validate_path(path: str, library_path: str) -> bool:
+    return ".." not in path and path.startswith(library_path)
+
+
+def test_file_thread(items: list, library_id: int, num_threads=1):
+    if len(items) == 0:
+        return
+
+    libraryscanner = get_libraryscanner()
+
+    # pre-fill queue
+    files_to_test = queue.Queue()
+    for item in items:
+        files_to_test.put(item)
+    files_to_process = queue.Queue()
+
+    event = libraryscanner.event
+
+    threads = []
+
+    for i in range(num_threads):
+        tester = FileTesterThread(f"kmarius-file-tester-{library_id}-{i}", files_to_test, files_to_process,
+                                  queue.Queue(),
+                                  library_id, event)
+        tester.daemon = True
+        tester.start()
+        threads.append(tester)
+
+    def queue_up_result(item):
+        libraryscanner.add_path_to_queue(item.get('path'), library_id, item.get('priority_score'))
+
+    while not files_to_test.empty():
+        while not files_to_process.empty():
+            queue_up_result(files_to_process.get())
+        event.wait(1)
+
+    for thread in threads:
+        thread.stop()
+
+    for thread in threads:
+        thread.join()
+
+    while not files_to_process.empty():
+        queue_up_result(files_to_process.get())
+
+
+def test_files(payload: dict):
+    library_paths = get_library_paths()
+
+    if "arr" in payload:
+        items = payload["arr"]
+    else:
+        items = [payload]
+
+    items_per_lib = {}
+
+    for item in items:
+        library_id = item["library_id"]
+        path = item["path"]
+
+        if not validate_path(path, library_paths[library_id]):
+            raise Exception("Invalid path")
+
+        if not library_id in items_per_lib:
+            items_per_lib[library_id] = set()
+
+        if os.path.isdir(path):
+            items_ = items_per_lib[library_id]
+            for path in expand_path(path):
+                if is_extension_allowed(library_id, path):
+                    items_.add(path)
+        else:
+            items_per_lib[library_id].add(path)
+
+    for id in items_per_lib:
+        threading.Thread(target=test_file_thread, args=(list(items_per_lib[id]), id)).start()
+
+
+def process_files(payload: dict):
+    library_paths = get_library_paths()
+
+    libraryscanner = get_libraryscanner()
+
+    if "arr" in payload:
+        items = payload["arr"]
+    else:
+        items = [payload]
+
+    items_per_lib = {}
+
+    for item in items:
+        library_id = item["library_id"]
+        path = item["path"]
+        priority_score = item["priority_score"]
+
+        if not validate_path(path, library_paths[library_id]):
+            raise Exception("Invalid path")
+
+        if not library_id in items_per_lib:
+            items_per_lib[library_id] = []
+
+        if os.path.isdir(path):
+            items_ = items_per_lib[library_id]
+            for path in expand_path(path):
+                if is_extension_allowed(library_id, path):
+                    items_.append({"path": path, "priority_score": priority_score})
+        else:
+            items_per_lib[library_id].append({"path": path, "priority_score": priority_score})
+
+    for id in items_per_lib:
+        for item in items_per_lib[id]:
+            libraryscanner.add_path_to_queue(item['path'], id, item['priority_score'])
+
+
+# this function can't load single files currently, only directories with their files
+def load_subtree(path: str, title: str, library_id: int, lazy=True, get_timestamps=False) -> dict:
+    children = []
+    files = []
+
+    with os.scandir(path) as entries:
+        for entry in entries:
+            name = entry.name
+            if name.startswith("."):
+                continue
+            abspath = os.path.abspath(os.path.join(path, name))
+            if entry.is_dir():
+                if lazy:
+                    children.append({
+                        "title":      name,
+                        "library_id": library_id,
+                        "path":       abspath,
+                        "lazy":       True,
+                        "type":       "folder",
+                    })
+                else:
+                    children.append(load_subtree(abspath, name, library_id, lazy=False, get_timestamps=get_timestamps))
+            else:
+                if is_extension_allowed(library_id, name):
+                    file_info = os.stat(abspath)
+                    files.append({
+                        "title":      name,
+                        "library_id": library_id,
+                        "path":       abspath,
+                        "mtime":      int(file_info.st_mtime),
+                        "size":       int(file_info.st_size),
+                        "icon":       "bi bi-film"
+                    })
+
+    children.sort(key=lambda c: c["title"])
+    files.sort(key=lambda c: c["title"])
+
+    # getting timestamps in bulk makes the operation >5 times faster
+    if get_timestamps:
+        paths = [file["path"] for file in files]
+        for i, timestamp in enumerate(timestamps.load_timestamps(library_id, paths)):
+            files[i]['timestamp'] = timestamp
+
+    children += files
+
+    return {
+        "title":      title,
+        "children":   children,
+        "library_id": library_id,
+        "path":       path,
+        "type":       "folder",
+    }
+
+
+def get_subtree(arguments: dict, lazy=True) -> dict:
+    library_id = int(arguments["library_id"][0])
+    path = arguments["path"][0].decode('utf-8')
+    title = arguments["title"][0].decode('utf-8')
+
+    library = Libraries().select().where(Libraries.id == library_id).first()
+
+    if library.enable_remote_only:
+        raise Exception("Library is remote only")
+
+    if not path.startswith(library.path) or ".." in path:
+        raise Exception("Invalid path")
+
+    return load_subtree(path, title, library_id, lazy=lazy, get_timestamps=True)
+
+
+def reset_timestamps(payload: dict):
+    if "arr" in payload:
+        items = [(item["library_id"], item["path"]) for item in payload["arr"]]
+    else:
+        items = [(payload["library_id"], payload["path"])]
+
+    distinct = set()
+    for library_id, path in items:
+        if os.path.isdir(path):
+            for p in expand_path(path):
+                distinct.add((library_id, p))
+        else:
+            distinct.add((library_id, path))
+    values = [(library_id, path, 0) for library_id, path in distinct if
+              is_extension_allowed(library_id, path)]
+
+    timestamps.store_timestamps(values)
+
+
+def update_timestamps(payload: dict):
+    if "arr" in payload:
+        items = [(item["library_id"], item["path"]) for item in payload["arr"]]
+    else:
+        items = [(payload["library_id"], payload["path"])]
+
+    distinct = set()
+    for library_id, path in items:
+        if os.path.isdir(path):
+            for p in expand_path(path):
+                distinct.add((library_id, p))
+        else:
+            distinct.add((library_id, path))
+    items = [(library_id, path) for library_id, path in distinct if is_extension_allowed(library_id, path)]
+
+    values = []
+    for library_id, path in items:
+        try:
+            mtime = int(os.path.getmtime(path))
+            values.append((library_id, path, mtime))
+        except OSError as e:
+            logger.error(f"{e}")
+
+    timestamps.store_timestamps(values)
+
+
+def get_libraries(lazy=True) -> dict:
+    libs = []
+    for lib in Libraries().select().where(Libraries.enable_remote_only == False):
+        libs.append({
+            "title":      lib.name,
+            "library_id": lib.id,
+            "path":       lib.path,
+            "type":       "folder",
+            "lazy":       lazy,
+        })
+
+    return {
+        "children": libs,
+    }
+
+
+def render_frontend_panel(data: PanelData):
+    data["content_type"] = "text/html"
+
+    with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:
+        content = file.read()
+        data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
+
+
+def render_plugin_api(data: PluginApiData) -> PluginApiData:
+    data['content_type'] = 'application/json'
+
+    path = data["path"]
+
+    try:
+        if path == "/test":
+            test_files(json.loads(data["body"].decode('utf-8')))
+        elif path == '/process':
+            process_files(json.loads(data["body"].decode('utf-8')))
+        elif path == '/subtree':
+            data["content"] = get_subtree(data["arguments"], False)
+        elif path == "/libraries":
+            data["content"] = get_libraries()
+        elif path == "/timestamp/reset":
+            reset_timestamps(json.loads(data["body"].decode('utf-8')))
+        elif path == "/timestamp/update":
+            update_timestamps(json.loads(data["body"].decode('utf-8')))
+        else:
+            data["content"] = {
+                "success": False,
+                "error":   f"unknown path: {data['path']}",
+            }
+    except Exception as e:
+        trace = traceback.format_exc()
+        logger.error(trace)
+        data["content"] = {
+            "success": False,
+            "error":   str(e),
+            "trace":   trace,
+        }
+
     return data

@@ -15,7 +15,7 @@ class PluginApiData (TypedDict):
     uri: str
     query: str
     arguments: dict
-    body: dict
+    body: bytes
 
 
 class FileTestData (TypedDict):
