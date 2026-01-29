@@ -179,7 +179,7 @@
                 if (visited.has(node))
                     return;
                 visited.add(node);
-                node.data["timestamp"] = "0";
+                node.data["timestamp"] = 0;
                 node.update();
             }
             nodes.forEach(e => {

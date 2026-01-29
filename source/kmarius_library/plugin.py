@@ -31,7 +31,7 @@ class Settings(PluginSettings):
             "ignored_path_patterns":    "",
             "allowed_extensions":       '',
             "incremental_scan_enabled": True,
-            "quiet_incremental_scan":   False,
+            "quiet_incremental_scan":   True,
             "caching_enabled":          True,
         }
         form_settings = {
@@ -47,7 +47,7 @@ class Settings(PluginSettings):
                 "label": "Enable incremental scans (ignore unchanged files)",
             },
             "quiet_incremental_scan":   {
-                "label":       "Don't spam the logs with unchanged files.",
+                "label":       "Don't spam the logs with unchanged files and timestamp updates.",
                 'display':     'hidden',
                 "sub_setting": True,
             },
@@ -59,6 +59,9 @@ class Settings(PluginSettings):
         settings.update({
             p.setting_name(): p.default_enabled for p in PROVIDERS
         })
+        settings.update({
+            "quiet_caching": True,
+        })
 
         form_settings.update({
             p.setting_name(): {
@@ -66,6 +69,13 @@ class Settings(PluginSettings):
                 "sub_setting": True,
                 'display':     'hidden',
             } for p in PROVIDERS
+        })
+        form_settings.update({
+            "quiet_caching": {
+                'label':       "Don't spam the logs with information on caching.",
+                "sub_setting": True,
+                'display':     'hidden',
+            }
         })
 
         return settings, form_settings
@@ -85,38 +95,40 @@ class Settings(PluginSettings):
                 for setting, val in form_settings.items():
                     if setting.startswith("cache_"):
                         del val["display"]
+                    if setting == "quiet_caching":
+                        del val["display"]
             if self.settings_configured.get("incremental_scan_enabled"):
                 del form_settings["quiet_incremental_scan"]["display"]
         return form_settings
 
 
-allowed_extensions = {}
-ignored_path_patterns = {}
+_allowed_extensions = {}
+_ignored_path_patterns = {}
 
 
 def get_allowed_extensions(library_id: int) -> list[str]:
-    if library_id not in allowed_extensions:
+    if library_id not in _allowed_extensions:
         settings = Settings(library_id=library_id)
         extensions = settings.get_setting("allowed_extensions").split(",")
         extensions = [ext.strip().lstrip(".") for ext in extensions]
-        allowed_extensions[library_id] = extensions
-    return allowed_extensions[library_id]
+        _allowed_extensions[library_id] = extensions
+    return _allowed_extensions[library_id]
 
 
 def get_ignored_path_patterns(library_id: int) -> list[re.Pattern]:
-    if library_id not in ignored_path_patterns:
+    if library_id not in _ignored_path_patterns:
         settings = Settings(library_id=library_id)
         patterns = []
         for regex_pattern in settings.get_setting("ignored_path_patterns").splitlines():
             regex_pattern = regex_pattern.strip()
-            if regex_pattern != "":
+            if regex_pattern != "" and not regex_pattern.startswith("#"):
                 pattern = re.compile(regex_pattern)
                 patterns.append(pattern)
-        ignored_path_patterns[library_id] = patterns
-    return ignored_path_patterns[library_id]
+        _ignored_path_patterns[library_id] = patterns
+    return _ignored_path_patterns[library_id]
 
 
-def update_cached_metadata(providers: list[MetadataProvider], path: str):
+def update_cached_metadata(providers: list[MetadataProvider], path: str, quiet: bool = True):
     try:
         mtime = int(os.path.getmtime(path))
 
@@ -128,7 +140,8 @@ def update_cached_metadata(providers: list[MetadataProvider], path: str):
 
             if res:
                 cache.put(p.name, path, mtime, res)
-                logger.info(f"Updating {p.name} data - {path}")
+                if not quiet:
+                    logger.info(f"Updating {p.name} data - {path}")
     except Exception as e:
         logger.error(e)
 
@@ -136,7 +149,6 @@ def update_cached_metadata(providers: list[MetadataProvider], path: str):
 def update_timestamp(library_id: int, path: str):
     try:
         mtime = int(os.path.getmtime(path))
-        logger.info(f"Updating timestamp path={path} library_id={library_id} to {mtime}")
         timestamps.put(library_id, path, mtime)
     except Exception as e:
         logger.error(e)
@@ -166,14 +178,12 @@ def is_file_unchanged(library_id: int, path: str) -> bool:
     return False
 
 
-def init_shared_data(data: dict):
+def init_shared_data(data: FileTestData, settings: Settings):
     if not "shared_info" in data:
         data["shared_info"] = {}
     shared_info = data["shared_info"]
     if not "kmarius_library" in shared_info:
-        shared_info["kmarius_library"] = {
-            "incremental_scan": {}
-        }
+        shared_info["kmarius_library"] = settings
 
 
 def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData]:
@@ -189,7 +199,7 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
         data['add_file_to_pending_tasks'] = False
         return data
 
-    init_shared_data(data)
+    init_shared_data(data, settings)
 
     if settings.get_setting("incremental_scan_enabled"):
         if is_file_unchanged(library_id, path):
@@ -200,10 +210,10 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
                 })
             data['add_file_to_pending_tasks'] = False
             return data
-        data["shared_info"]["kmarius_library"]["incremental_scan"][library_id] = True
 
     if settings.get_setting("caching_enabled"):
         mtime = int(os.path.getmtime(path))
+        quiet = settings.get_setting("quiet_caching")
 
         for p in PROVIDERS:
             if not settings.get_setting(p.setting_name()):
@@ -212,10 +222,12 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
             res = cache.lookup(p.name, path, mtime)
 
             if res is None:
-                logger.info(f"No cached {p.name} data found, refreshing - {path}")
+                if not quiet:
+                    logger.info(f"No cached {p.name} data found, refreshing - {path}")
                 res = p.run_prog(path)
             else:
-                logger.info(f"Cached {p.name} data found - {path}")
+                if not quiet:
+                    logger.info(f"Cached {p.name} data found - {path}")
 
             if res:
                 data["shared_info"][p.name] = res
@@ -239,12 +251,16 @@ def on_postprocessor_task_results(data: TaskResultData) -> Optional[TaskResultDa
                 if settings.get_setting(p.setting_name()):
                     metadata_providers.append(p)
 
+        quiet = settings.get_setting("quiet_caching")
+
         for path in data["destination_files"]:
             if is_extension_allowed(library_id, path):
                 if caching_enabled:
-                    update_cached_metadata(metadata_providers, path)
+                    update_cached_metadata(metadata_providers, path, quiet)
                 if incremental_scan_enabled:
                     # TODO: it could be desirable to not add this file to the db and have it checked again
+                    if not settings.get_setting("quiet_incremental_scan"):
+                        logger.info(f"Updating timestamp path={path} library_id={library_id}")
                     update_timestamp(library_id, path)
     return data
 
@@ -296,8 +312,8 @@ def test_file_thread(items: list, library_id: int, num_threads=1):
     threads = []
 
     for i in range(num_threads):
-        tester = FileTesterThread(f"kmarius-file-tester-{library_id}-{i}", files_to_test, files_to_process,
-                                  queue.Queue(),
+        tester = FileTesterThread(f"kmarius-file-tester-{library_id}-{i}",
+                                  files_to_test, files_to_process, queue.Queue(),
                                   library_id, event)
         tester.daemon = True
         tester.start()
@@ -552,8 +568,6 @@ def prune_database(payload: dict):
 
         num_pruned += len(paths)
     logger.info(f"Pruned {num_pruned} paths")
-
-
 
     if prune_metadata:
         # we don't care whether caching is enabled for a library or not
