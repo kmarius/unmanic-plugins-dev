@@ -5,13 +5,12 @@ import json
 import logging
 import os
 import queue
+import re
 import threading
-import time
 import uuid
 import traceback
+from typing import override
 
-from playhouse.shortcuts import model_to_dict
-from playhouse.sqliteq import SqliteQueueDatabase
 from unmanic.libs.filetest import FileTesterThread
 from unmanic.libs.library import Libraries
 from unmanic.libs.unplugins.settings import PluginSettings
@@ -20,17 +19,126 @@ logger = logging.getLogger("Unmanic.Plugin.kmarius_files")
 
 
 class Settings(PluginSettings):
-    settings = {
-        "Valid extensions ": ".mp4,.mkv,.webm",
-    }
+
+    def __init__(self, *args, **kwargs):
+        super(Settings, self).__init__(*args, **kwargs)
+        self.settings, self.form_settings = self.__build_settings()
+        self._valid_extensions = None
+        self._ignore_patterns = None
+
+    @staticmethod
+    def __build_settings():
+        libs = []
+        for lib in Libraries().select().where(Libraries.enable_remote_only == False):
+            libs.append((lib.id, lib.name))
+
+        settings = {
+            "library_id": libs[0][0],
+        }
+
+        form_settings = {
+            "library_id": {
+                "label":          "Configuration for library",
+                "input_type":     "select",
+                "select_options": [
+                    {"value": library_id, "label": name} for library_id, name in libs
+                ],
+            },
+        }
+
+        settings.update({
+            f"library_{library_id}_extensions": "mp4,mkv,webm,avi,mov" for library_id, _ in libs
+        })
+        form_settings.update({
+            f"library_{library_id}_extensions":
+                {
+                    "label":       "Allowed extensions for this library",
+                    "sub_setting": True,
+                    "display":     "hidden",
+                }
+            for library_id, _ in libs
+        })
+
+        settings.update({
+            f"library_{library_id}_ignored_paths": "" for library_id, _ in libs
+        })
+        form_settings.update({
+            f"library_{library_id}_ignored_paths":
+                {
+                    "label":       "Ignored path patterns for this library - one per line",
+                    "input_type":  "textarea",
+                    "sub_setting": True,
+                    "display":     "hidden",
+                }
+            for library_id, _ in libs
+        })
+
+        settings.update({
+            f"library_{library_id}_lazy_load": False for library_id, _ in libs
+        })
+        form_settings.update({
+            f"library_{library_id}_lazy_load":
+                {
+                    "label":       "Lazily load files in this library.",
+                    "sub_setting": True,
+                    "display":     "hidden",
+                }
+            for library_id, _ in libs
+        })
+
+        return settings, form_settings
+
+    @override
+    def get_form_settings(self):
+        form_settings = super(Settings, self).get_form_settings()
+        if not self.settings_configured:
+            # FIXME: in staging, settings_configured is not populated at this point and the corresponding method is private
+            self._PluginSettings__import_configured_settings()
+        if self.settings_configured:
+            library_id = self.settings_configured.get("library_id")
+            settings = [
+                f"library_{library_id}_extensions",
+                f"library_{library_id}_ignored_paths",
+                f"library_{library_id}_lazy_load",
+            ]
+            for setting in settings:
+                if setting in form_settings:
+                    del form_settings[setting]["display"]
+        return form_settings
+
+    def is_extension_valid(self, library_id: int, path: str):
+        if self._valid_extensions is None:
+            self._valid_extensions = {}
+            for lib in Libraries().select().where(Libraries.enable_remote_only == False):
+                extensions = self.get_setting(f"library_{lib.id}_extensions").split(",")
+                extensions = [e.strip().lower() for e in extensions]
+                self._valid_extensions[lib.id] = set(extensions)
+        ext = os.path.splitext(path)[1]
+        if not ext:
+            return False
+        ext = ext.lower().lstrip(".")
+        return ext in self._valid_extensions[library_id]
+
+    def is_path_ignored(self, library_id: int, path: str):
+        if self._ignore_patterns is None:
+            self._ignore_patterns = {}
+            for lib in Libraries().select().where(Libraries.enable_remote_only == False):
+                patterns = []
+                for pattern in self.get_setting(f"library_{lib.id}_ignored_paths").splitlines():
+                    pattern = pattern.strip()
+                    if pattern != "" and not pattern.startswith("#"):
+                        patterns.append(re.compile(pattern))
+                self._ignore_patterns[lib.id] = patterns
+        for pattern in self._ignore_patterns[library_id]:
+            if pattern.search(path):
+                return True
+        return False
+
+    def is_in_library(self, library_id: int, path: str):
+        return self.is_extension_valid(library_id, path) and not self.is_path_ignored(library_id, path)
 
 
 settings = Settings()
-
-
-def get_valid_extensions():
-    extensions = settings.get_setting("Valid extensions ")
-    return [ext.strip() for ext in extensions.split(",")]
 
 
 def get_thread(name):
@@ -50,11 +158,6 @@ def have_incremental_scan():
     except ImportError:
         pass
     return False
-
-
-def extension_valid(path, extensions):
-    _, ext = os.path.splitext(path)
-    return ext.lower() in extensions
 
 
 def expand_path(path):
@@ -117,7 +220,6 @@ def test_file_thread(items, library_id, num_threads=1):
 
 
 def test_files(payload):
-    extensions = get_valid_extensions()
     library_paths = get_library_paths()
 
     if "arr" in payload:
@@ -140,7 +242,7 @@ def test_files(payload):
         if os.path.isdir(path):
             items_ = items_per_lib[library_id]
             for path in expand_path(path):
-                if extension_valid(path, extensions):
+                if settings.is_in_library(library_id, path):
                     items_.add(path)
         else:
             items_per_lib[library_id].add(path)
@@ -150,7 +252,6 @@ def test_files(payload):
 
 
 def process_files(payload):
-    extensions = get_valid_extensions()
     library_paths = get_library_paths()
 
     if "arr" in payload:
@@ -174,7 +275,7 @@ def process_files(payload):
         if os.path.isdir(path):
             items_ = items_per_lib[library_id]
             for path in expand_path(path):
-                if extension_valid(path, extensions):
+                if settings.is_in_library(library_id, path):
                     items_.append({"path": path, "priority_score": priority_score})
         else:
             items_per_lib[library_id].append({"path": path, "priority_score": priority_score})
@@ -192,8 +293,6 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
         except ImportError:
             get_timestamps = False
 
-    extensions = get_valid_extensions()
-
     children = []
     files = []
 
@@ -206,24 +305,24 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
             if entry.is_dir():
                 if lazy:
                     children.append({
-                        "title": name,
+                        "title":     name,
                         "libraryId": id,
-                        "path": abspath,
-                        "lazy": True,
-                        "type": "folder",
+                        "path":      abspath,
+                        "lazy":      True,
+                        "type":      "folder",
                     })
                 else:
                     children.append(load_subtree(abspath, name, id, lazy=False, get_timestamps=get_timestamps))
             else:
-                if extension_valid(name, extensions):
+                if settings.is_in_library(id, name):
                     file_info = os.stat(abspath)
                     files.append({
-                        "title": name,
+                        "title":     name,
                         "libraryId": id,
-                        "path": abspath,
-                        "mtime": int(file_info.st_mtime),
-                        "size": int(file_info.st_size),
-                        "icon": "bi bi-film"
+                        "path":      abspath,
+                        "mtime":     int(file_info.st_mtime),
+                        "size":      int(file_info.st_size),
+                        "icon":      "bi bi-film"
                     })
 
     children.sort(key=lambda c: c["title"])
@@ -238,15 +337,15 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
     children += files
 
     return {
-        "title": title,
-        "children": children,
+        "title":     title,
+        "children":  children,
         "libraryId": id,
-        "path": path,
-        "type": "folder",
+        "path":      path,
+        "type":      "folder",
     }
 
 
-def get_subtree(arguments, lazy=True):
+def get_subtree(arguments):
     id = int(arguments["libraryId"][0])
     path = arguments["path"][0].decode('utf-8')
     title = arguments["title"][0].decode('utf-8')
@@ -260,6 +359,7 @@ def get_subtree(arguments, lazy=True):
         raise Exception("Invalid path")
 
     get_timestamps = have_incremental_scan()
+    lazy = settings.get_setting(f"library_{library.id}_lazy_load")
 
     return load_subtree(path, title, id, lazy=lazy, get_timestamps=get_timestamps)
 
@@ -270,8 +370,6 @@ def reset_timestamps(payload):
     except ImportError:
         return
 
-    extensions = get_valid_extensions()
-
     if "arr" in payload:
         items = [(item["library_id"], item["path"]) for item in payload["arr"]]
     else:
@@ -284,7 +382,7 @@ def reset_timestamps(payload):
                 distinct.add((library_id, p))
         else:
             distinct.add((library_id, path))
-    values = [(library_id, path, 0) for library_id, path in distinct if extension_valid(path, extensions)]
+    values = [(library_id, path, 0) for library_id, path in distinct if settings.is_in_library(library_id, path)]
 
     store_timestamps(values)
 
@@ -295,8 +393,6 @@ def update_timestamps(payload):
     except ImportError:
         return
 
-    extensions = get_valid_extensions()
-
     if "arr" in payload:
         items = [(item["library_id"], item["path"]) for item in payload["arr"]]
     else:
@@ -309,7 +405,7 @@ def update_timestamps(payload):
                 distinct.add((library_id, p))
         else:
             distinct.add((library_id, path))
-    items = [(library_id, path) for library_id, path in distinct if extension_valid(path, extensions)]
+    items = [(library_id, path) for library_id, path in distinct if settings.is_in_library(library_id, path)]
 
     values = []
     for library_id, path in items:
@@ -326,11 +422,11 @@ def get_libraries(lazy=True):
     libs = []
     for lib in Libraries().select().where(Libraries.enable_remote_only == False):
         libs.append({
-            "title": lib.name,
+            "title":     lib.name,
             "libraryId": lib.id,
-            "path": lib.path,
-            "type": "folder",
-            "lazy": lazy,
+            "path":      lib.path,
+            "type":      "folder",
+            "lazy":      lazy,
         })
 
     return {
@@ -349,7 +445,6 @@ def render_frontend_panel(data):
 
 
 def render_plugin_api(data):
-    start_time = time.time()
     data['content_type'] = 'application/json'
 
     try:
@@ -359,7 +454,7 @@ def render_plugin_api(data):
         elif path == '/process':
             process_files(json.loads(data["body"].decode('utf-8')))
         elif path == '/subtree':
-            data["content"] = get_subtree(data["arguments"], False)
+            data["content"] = get_subtree(data["arguments"])
         elif path == "/libraries":
             data["content"] = get_libraries()
         elif path == "/timestamp/reset":
@@ -369,20 +464,15 @@ def render_plugin_api(data):
         else:
             data["content"] = {
                 "success": False,
-                "error": f"unknown path: {data['path']}",
+                "error":   f"unknown path: {data['path']}",
             }
     except Exception as e:
         trace = traceback.format_exc()
         logger.error(trace)
         data["content"] = {
             "success": False,
-            "error": str(e),
-            "trace": trace,
+            "error":   str(e),
+            "trace":   trace,
         }
-
-    end_time = time.time()
-    elapsed = end_time - start_time
-    path = data["path"]
-    # logger.info(f"{path} {int(elapsed * 1000)}ms")
 
     return data
