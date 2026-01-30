@@ -37,7 +37,9 @@ class Settings(PluginSettings):
     _cache = {}
 
     @override
-    def get_setting(self, key):
+    def get_setting(self, key=None):
+        if not key:
+            return super().get_setting()
         if key not in self._cache:
             setting = super().get_setting(key)
             tokens = setting.split(",")
