@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import threading
 from threading import local
 
 from unmanic.libs import common
@@ -47,10 +48,17 @@ def init():
 threadlocal = local()
 
 
-def _get_connection() -> sqlite3.Connection:
-    if not hasattr(threadlocal, "connection"):
-        threadlocal.connection = sqlite3.connect(DB_PATH)
-    return threadlocal.connection
+# we only reuse connection in when file testing, because we currently can't close connections after
+# the scan finishes, these will get closed when going out of scope
+# other threads, such as the post-processor will get a single use connection
+def _get_connection(reuse_connection=False) -> sqlite3.Connection:
+    if reuse_connection:
+        if not hasattr(threadlocal, "connection"):
+            threadlocal.connection = sqlite3.connect(DB_PATH)
+
+        return threadlocal.connection
+    else:
+        return sqlite3.connect(DB_PATH)
 
 
 def put(library_id: int, path: str, mtime: int):
@@ -75,8 +83,8 @@ def put_many(values: list[(int, str, int)]):
     conn.commit()
 
 
-def get(library_id: int, path: str):
-    conn = _get_connection()
+def get(library_id: int, path: str, reuse_connection=False):
+    conn = _get_connection(reuse_connection)
     cur = conn.cursor()
     cur.execute(
         "SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?", (library_id, path))

@@ -186,7 +186,7 @@ def is_path_ignored(library_id: int, path: str) -> bool:
 
 def is_file_unchanged(library_id: int, path: str) -> bool:
     mtime = int(os.path.getmtime(path))
-    stored_timestamp = timestamps.get(library_id, path)
+    stored_timestamp = timestamps.get(library_id, path, reuse_connection=True)
     if stored_timestamp == mtime:
         return True
     return False
