@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from threading import local
 
 from unmanic.libs import common
 from . import logger, PLUGIN_ID
@@ -43,9 +44,13 @@ def init():
     conn.close()
 
 
+threadlocal = local()
+
+
 def _get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    return conn
+    if not hasattr(threadlocal, "connection"):
+        threadlocal.connection = sqlite3.connect(DB_PATH)
+    return threadlocal.connection
 
 
 def put(library_id: int, path: str, mtime: int):
@@ -57,7 +62,6 @@ def put(library_id: int, path: str, mtime: int):
                 ON CONFLICT(library_id, path) DO UPDATE SET mtime = excluded.mtime
                 ''', (library_id, path, mtime))
     conn.commit()
-    conn.close()
 
 
 def put_many(values: list[(int, str, int)]):
@@ -69,7 +73,6 @@ def put_many(values: list[(int, str, int)]):
                     ON CONFLICT(library_id, path) DO UPDATE SET mtime = excluded.mtime
                     ''', values)
     conn.commit()
-    conn.close()
 
 
 def get(library_id: int, path: str):
@@ -79,7 +82,6 @@ def get(library_id: int, path: str):
         "SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?", (library_id, path))
     row = cur.fetchone()
     mtime = row[0] if row else None
-    conn.close()
     return mtime
 
 
@@ -95,7 +97,6 @@ def get_many(library_id: int, paths: list[str]):
                 "SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?", (library_id, path))
             row = cur.fetchone()
             mtimes.append(row[0] if row else None)
-    conn.close()
     return mtimes
 
 
@@ -112,7 +113,6 @@ def get_all_paths(library_id: int = None) -> list[str]:
         cur.execute('''SELECT DISTINCT path
                        FROM timestamps''')
     paths = [path[0] for path in cur.fetchall()]
-    conn.close()
     return paths
 
 
@@ -128,4 +128,3 @@ def remove_paths(library_id: int, paths: list[str]):
                       AND path = ?
                     ''', (library_id, path))
     conn.commit()
-    conn.close()
