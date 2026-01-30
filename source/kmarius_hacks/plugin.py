@@ -22,7 +22,7 @@ class Settings(PluginSettings):
             "description": "This only affects newly spawned file tester threads. Disabling this setting requires a restart."
         },
         "check_existing_before_test": {
-            "label":       "Check that files exist before running the test flow on.",
+            "label":       "Ensure that files exist before running the test flow.",
             "description": "This only affects newly spawned file tester threads. Disabling this setting requires a restart."
         },
     }
