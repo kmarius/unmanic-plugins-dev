@@ -51,7 +51,7 @@ if settings.get_setting("check_existing_before_test"):
 
 
     if not hasattr(FileTest, "old_should_file_be_added_to_task_list"):
-        logger.info("Patching FileTest.old_should_file_be_added_to_task_list")
+        logger.info("Patching FileTest.should_file_be_added_to_task_list")
         FileTest.old_should_file_be_added_to_task_list = FileTest.should_file_be_added_to_task_list
         FileTest.should_file_be_added_to_task_list = should_file_be_added_to_task_list
 
