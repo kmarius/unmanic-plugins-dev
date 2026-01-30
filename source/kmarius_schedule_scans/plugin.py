@@ -167,7 +167,7 @@ def _restart_scheduler_thread():
         if thread.name == THREAD_NAME and hasattr(thread, "stop"):
             thread.stop()
             thread.join()
-    StoppableThread(target=_scheduler_main, name=THREAD_NAME).start()
+    StoppableThread(target=_scheduler_main, name=THREAD_NAME, daemon=True).start()
 
 
 logger.info("Plugin (re-)loaded.")

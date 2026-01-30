@@ -249,7 +249,7 @@ def test_files(payload):
             items_per_lib[library_id].add(path)
 
     for library_id, items in items_per_lib.items():
-        threading.Thread(target=test_file_thread, args=(list(items), library_id)).start()
+        threading.Thread(target=test_file_thread, args=(list(items), library_id), daemon=True).start()
 
 
 def process_files(payload):
