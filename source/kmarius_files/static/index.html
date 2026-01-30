@@ -31,6 +31,7 @@
     </style>
     <script>
         const HAVE_INCREMENTAL_SCAN = false;
+        const PLUGIN_ID = "kmarius_files";
 
         const actions_default = `<select tabindex="-1">
                 <option value="reload">Refresh</option>
@@ -47,6 +48,10 @@
                 </select>`;
 
         const actions = HAVE_INCREMENTAL_SCAN ? actions_extended : actions_default;
+
+        function buildUrl(path) {
+            return "/unmanic/plugin_api/" + PLUGIN_ID + path;
+        }
 
         function formatFileSize(bytes) {
             if (!bytes)
@@ -100,8 +105,6 @@
             if (root.isUnloaded()) {
                 return root.loadLazy();
             }
-
-            console.log("updateing ", root.title);
 
             let expanded = new Set();
             let selected = new Set();
@@ -180,7 +183,7 @@
             let arr = nodes.map(node => {
                 return {
                     "path": node.data.path,
-                    "library_id": node.data.libraryId,
+                    "library_id": node.data.library_id,
                     "library_name": "string",
                     "type": "local",
                     "priority_score": 0
@@ -194,7 +197,7 @@
                     updateSubtrees(nodes);
                     break;
                 case "test":
-                    await fetch('/unmanic/plugin_api/kmarius_files/test', {
+                    await fetch(buildUrl('/test'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -203,7 +206,7 @@
                     });
                     break;
                 case "process":
-                    await fetch('/unmanic/plugin_api/kmarius_files/process', {
+                    await fetch(buildUrl('/process'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -212,7 +215,7 @@
                     });
                     break;
                 case "update-timestamp":
-                    await fetch('/unmanic/plugin_api/kmarius_files/timestamp/update', {
+                    await fetch(buildUrl('/timestamp/update'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -222,7 +225,7 @@
                     fakeUpdateTimestamps(nodes);
                     break;
                 case "reset-timestamp":
-                    await fetch('/unmanic/plugin_api/kmarius_files/timestamp/reset', {
+                    await fetch(buildUrl('/timestamp/reset'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -282,25 +285,20 @@
                     tree.toggleSelect();
                 });
 
-            let columns = HAVE_INCREMENTAL_SCAN ?
-                [
-                    {id: "*", title: "Path", width: "500px"},
-                    {id: "size", title: "Size", width: "100px", classes: "wb-helper-end"},
-                    {id: "mtime", title: "Modification", width: "150px", classes: "wb-helper-end"},
-                    {id: "timestamp", title: "Timestamp", width: "150px", classes: "wb-helper-end"},
-                    {id: "action", title: "Action", width: "80px"},
-                ] :
-                [
-                    {id: "*", title: "Path", width: "500px"},
-                    {id: "size", title: "Size", width: "100px", classes: "wb-helper-end"},
-                    {id: "mtime", title: "Modification", width: "150px", classes: "wb-helper-end"},
-                    {id: "action", title: "Action", width: "80px"},
-                ];
+            let columns = [
+                {id: "*", title: "Path", width: "500px"},
+                {id: "size", title: "Size", width: "100px", classes: "wb-helper-end"},
+                {id: "mtime", title: "Modification", width: "150px", classes: "wb-helper-end"},
+                {id: "action", title: "Action", width: "80px"},
+            ];
 
-            let tree = new mar10.Wunderbaum({
+            if (HAVE_INCREMENTAL_SCAN)
+                columns.splice(3, 0, {id: "timestamp", title: "Timestamp", width: "150px", classes: "wb-helper-end"});
+
+            new mar10.Wunderbaum({
                 id: "files",
                 element: document.getElementById("file-tree"),
-                source: {url: '/unmanic/plugin_api/kmarius_files/libraries'},
+                source: {url: buildUrl('/libraries')},
                 types: {},
                 columns: columns,
                 columnsResizable: true,
@@ -313,8 +311,8 @@
                 },
                 lazyLoad: function (e) {
                     return {
-                        url: '/unmanic/plugin_api/kmarius_files/subtree',
-                        params: {path: e.node.data.path, libraryId: e.node.data.libraryId, title: e.node.data.title}
+                        url: buildUrl('/subtree'),
+                        params: {path: e.node.data.path, library_id: e.node.data.library_id, title: e.node.data.title}
                     };
                 },
                 filter: {

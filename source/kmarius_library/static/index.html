@@ -43,6 +43,7 @@
     </style>
     <script>
         const ENABLE_EXTENDED_ACTIONS = true;
+        const PLUGIN_ID = "kmarius_library";
 
         const actions_default = `<select tabindex="-1">
                 <option value="reload">Refresh</option>
@@ -59,6 +60,10 @@
                 </select>`;
 
         const actions = ENABLE_EXTENDED_ACTIONS ? actions_extended : actions_default;
+
+        function buildUrl(path) {
+            return "/unmanic/plugin_api/" + PLUGIN_ID + path;
+        }
 
         function formatFileSize(bytes) {
             if (!bytes)
@@ -112,8 +117,6 @@
             if (root.isUnloaded()) {
                 return root.loadLazy();
             }
-
-            console.log("updateing ", root.title);
 
             let expanded = new Set();
             let selected = new Set();
@@ -206,7 +209,7 @@
                     await updateSubtrees(nodes);
                     break;
                 case "test":
-                    await fetch('/unmanic/plugin_api/kmarius_library/test', {
+                    await fetch(buildUrl('/test'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -215,7 +218,7 @@
                     });
                     break;
                 case "process":
-                    await fetch('/unmanic/plugin_api/kmarius_library/process', {
+                    await fetch(buildUrl('/process'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -224,7 +227,7 @@
                     });
                     break;
                 case "update-timestamp":
-                    await fetch('/unmanic/plugin_api/kmarius_library/timestamp/update', {
+                    await fetch(buildUrl('/timestamp/update'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -234,7 +237,7 @@
                     fakeUpdateTimestamps(nodes);
                     break;
                 case "reset-timestamp":
-                    await fetch('/unmanic/plugin_api/kmarius_library/timestamp/reset', {
+                    await fetch(buildUrl('/timestamp/reset'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -274,9 +277,20 @@
                     expanded = !expanded;
                 });
             document
+                .querySelector("#select-changed")
+                .addEventListener("click", (e) => {
+                    const tree = mar10.Wunderbaum.getTree("files");
+                    tree.selectAll(false);
+                    tree.findAll(e => {
+                        if (!"mtime" in e.data)
+                            return false;
+                        return !"timestamp" in e.data || e.data["mtime"] !== e.data["timestamp"];
+                    }).forEach(e => e.setSelected(true));
+                });
+            document
                 .querySelector("#prune-database")
                 .addEventListener("click", async (e) => {
-                    await fetch('/unmanic/plugin_api/kmarius_library/prune', {
+                    await fetch(buildUrl('/prune'), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -306,10 +320,10 @@
                     tree.toggleSelect();
                 });
 
-            let tree = new mar10.Wunderbaum({
+            new mar10.Wunderbaum({
                 id: "files",
                 element: document.getElementById("file-tree"),
-                source: {url: '/unmanic/plugin_api/kmarius_library/libraries'},
+                source: {url: buildUrl('/libraries')},
                 types: {},
                 columns: [
                     {id: "*", title: "Path", width: "500px"},
@@ -328,7 +342,7 @@
                 },
                 lazyLoad: function (e) {
                     return {
-                        url: '/unmanic/plugin_api/kmarius_library/subtree',
+                        url: buildUrl('/subtree'),
                         params: {path: e.node.data.path, library_id: e.node.data.library_id, title: e.node.data.title}
                     };
                 },
@@ -362,6 +376,7 @@
                 },
                 render: function (e) {
                     const node = e.node;
+                    let is_file = "mtime" in node.data;
                     for (const col of Object.values(e.renderColInfosById)) {
                         const val = node.data[col.id];
                         switch (col.id) {
@@ -369,14 +384,12 @@
                                 col.elem.textContent = formatTimeSinceEpoch(node.data[col.id]);
                                 break
                             case "timestamp":
-                                let is_file = "mtime" in node.data;
                                 if (is_file) {
                                     if (node.data[col.id] === 0 || node.data[col.id] == undefined) {
                                         col.elem.textContent = "none";
                                     } else {
                                         col.elem.textContent = formatTimeSinceEpoch(node.data[col.id]);
                                     }
-
                                     let hi = "timestamp" in node.data && node.data["timestamp"] !== node.data["mtime"];
                                     col.elem.classList.toggle("make-it-red", hi);
                                 }
@@ -430,6 +443,9 @@
                 title="(De)Select all"
             >
               <i class="bi bi-check2-square"></i>
+            </button>
+            <button type="button" id="select-changed" title="Select changed/new files">
+              <i class="bi bi-box-arrow-in-up-right"></i>
             </button>
             &vert;
             <label for="filter-query">Filter:</label>

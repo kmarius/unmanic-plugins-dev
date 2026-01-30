@@ -182,6 +182,7 @@ def validate_path(path, library_path):
 def test_file_thread(items, library_id, num_threads=1):
     if len(items) == 0:
         return
+    print(f"testing {len(items)} files")
 
     # pre-fill queue
     files_to_test = queue.Queue()
@@ -247,8 +248,8 @@ def test_files(payload):
         else:
             items_per_lib[library_id].add(path)
 
-    for id in items_per_lib:
-        threading.Thread(target=test_file_thread, args=(list(items_per_lib[id]), id)).start()
+    for library_id, items in items_per_lib.items():
+        threading.Thread(target=test_file_thread, args=(list(items), library_id)).start()
 
 
 def process_files(payload):
@@ -280,13 +281,25 @@ def process_files(payload):
         else:
             items_per_lib[library_id].append({"path": path, "priority_score": priority_score})
 
-    for id in items_per_lib:
-        for item in items_per_lib[id]:
-            libraryscanner.add_path_to_queue(item['path'], id, item['priority_score'])
+    for library_id, items in items_per_lib.items():
+        for item in items:
+            libraryscanner.add_path_to_queue(item['path'], library_id, item['priority_score'])
+
+
+def get_icon(name: str) -> str:
+    ext = os.path.splitext(name)[1][1:].lower()
+    if ext in ["mp4", "mkv", "webm", "avi", "mov", "flv"]:
+        return "bi bi-film"
+    elif ext in ["mp3", "m4a", "flac", "opus", "ogg"]:
+        return "bi bi-music-note-beamed"
+    elif ext in ["jpg", "png", "bmp"]:
+        return "bi bi-image"
+    else:
+        return "bi bi-file-earmark"
 
 
 # this function can't load single files currently, only directories with their files
-def load_subtree(path, title, id, lazy=True, get_timestamps=False):
+def load_subtree(path, title, library_id, lazy=True, get_timestamps=False):
     if get_timestamps:
         try:
             from kmarius_incremental_scan_db.lib import load_timestamp, load_timestamps
@@ -305,24 +318,24 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
             if entry.is_dir():
                 if lazy:
                     children.append({
-                        "title":     name,
-                        "libraryId": id,
-                        "path":      abspath,
-                        "lazy":      True,
-                        "type":      "folder",
+                        "title":      name,
+                        "library_id": library_id,
+                        "path":       abspath,
+                        "lazy":       True,
+                        "type":       "folder",
                     })
                 else:
-                    children.append(load_subtree(abspath, name, id, lazy=False, get_timestamps=get_timestamps))
+                    children.append(load_subtree(abspath, name, library_id, lazy=False, get_timestamps=get_timestamps))
             else:
-                if settings.is_in_library(id, name):
+                if settings.is_in_library(library_id, name):
                     file_info = os.stat(abspath)
                     files.append({
-                        "title":     name,
-                        "libraryId": id,
-                        "path":      abspath,
-                        "mtime":     int(file_info.st_mtime),
-                        "size":      int(file_info.st_size),
-                        "icon":      "bi bi-film"
+                        "title":      name,
+                        "library_id": library_id,
+                        "path":       abspath,
+                        "mtime":      int(file_info.st_mtime),
+                        "size":       int(file_info.st_size),
+                        "icon":       get_icon(name)
                     })
 
     children.sort(key=lambda c: c["title"])
@@ -331,26 +344,26 @@ def load_subtree(path, title, id, lazy=True, get_timestamps=False):
     # getting timestamps in bulk makes the operation >5 times faster
     if get_timestamps:
         paths = [file["path"] for file in files]
-        for i, timestamp in enumerate(load_timestamps(id, paths)):
+        for i, timestamp in enumerate(load_timestamps(library_id, paths)):
             files[i]['timestamp'] = timestamp
 
     children += files
 
     return {
-        "title":     title,
-        "children":  children,
-        "libraryId": id,
-        "path":      path,
-        "type":      "folder",
+        "title":      title,
+        "children":   children,
+        "library_id": library_id,
+        "path":       path,
+        "type":       "folder",
     }
 
 
 def get_subtree(arguments):
-    id = int(arguments["libraryId"][0])
+    library_id = int(arguments["library_id"][0])
     path = arguments["path"][0].decode('utf-8')
     title = arguments["title"][0].decode('utf-8')
 
-    library = Libraries().select().where(Libraries.id == id).first()
+    library = Libraries().select().where(Libraries.id == library_id).first()
 
     if library.enable_remote_only:
         raise Exception("Library is remote only")
@@ -361,7 +374,7 @@ def get_subtree(arguments):
     get_timestamps = have_incremental_scan()
     lazy = settings.get_setting(f"library_{library.id}_lazy_load")
 
-    return load_subtree(path, title, id, lazy=lazy, get_timestamps=get_timestamps)
+    return load_subtree(path, title, library_id, lazy=lazy, get_timestamps=get_timestamps)
 
 
 def reset_timestamps(payload):
@@ -419,18 +432,18 @@ def update_timestamps(payload):
 
 
 def get_libraries(lazy=True):
-    libs = []
+    libraries = []
     for lib in Libraries().select().where(Libraries.enable_remote_only == False):
-        libs.append({
-            "title":     lib.name,
-            "libraryId": lib.id,
-            "path":      lib.path,
-            "type":      "folder",
-            "lazy":      lazy,
+        libraries.append({
+            "title":      lib.name,
+            "library_id": lib.id,
+            "path":       lib.path,
+            "type":       "folder",
+            "lazy":       lazy,
         })
 
     return {
-        "children": libs,
+        "children": libraries,
     }
 
 
