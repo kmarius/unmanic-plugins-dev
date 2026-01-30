@@ -6,7 +6,6 @@ import os
 import queue
 import re
 import threading
-import time
 import traceback
 import uuid
 from typing import Mapping, Optional, override
@@ -15,10 +14,9 @@ from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.filetest import FileTesterThread
 from unmanic.libs.library import Libraries
 from unmanic.libs.unplugins.settings import PluginSettings
-from kmarius_library import logger
-from kmarius_library.lib import cache, timestamps
+from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
-from kmarius_library.plugin_types import *
+from kmarius_library.lib.plugin_types import *
 
 cache.init([p.name for p in PROVIDERS])
 timestamps.init()
@@ -221,7 +219,7 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
         if is_file_unchanged(library_id, path):
             if not settings.get_setting("quiet_incremental_scan"):
                 data["issues"].append({
-                    'id':      "kmarius_library",
+                    'id':      PLUGIN_ID,
                     'message': f"unchanged: {path}, library_id={library_id}"
                 })
             data['add_file_to_pending_tasks'] = False
@@ -239,7 +237,8 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
 
             if res is None:
                 if not quiet:
-                    logger.info(f"No cached {p.name} data found, refreshing - {path}")
+                    logger.info(
+                        f"No cached {p.name} data found, refreshing - {path}")
                 res = p.run_prog(path)
             else:
                 if not quiet:
@@ -255,7 +254,8 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
 def on_postprocessor_task_results(data: TaskResultData) -> Optional[TaskResultData]:
     if data["task_processing_success"] and data["file_move_processes_success"]:
         settings = Settings(library_id=data["library_id"])
-        incremental_scan_enabled = settings.get_setting("incremental_scan_enabled")
+        incremental_scan_enabled = settings.get_setting(
+            "incremental_scan_enabled")
         caching_enabled = settings.get_setting("caching_enabled")
 
         library_id = data["library_id"]
@@ -276,7 +276,8 @@ def on_postprocessor_task_results(data: TaskResultData) -> Optional[TaskResultDa
                 if incremental_scan_enabled:
                     # TODO: it could be desirable to not add this file to the db and have it checked again
                     if not settings.get_setting("quiet_incremental_scan"):
-                        logger.info(f"Updating timestamp path={path} library_id={library_id}")
+                        logger.info(f"Updating timestamp path={
+                                    path} library_id={library_id}")
                     update_timestamp(library_id, path)
     return data
 
@@ -336,7 +337,8 @@ def test_file_thread(items: list, library_id: int, num_threads=1):
         threads.append(tester)
 
     def queue_up_result(item):
-        libraryscanner.add_path_to_queue(item.get('path'), library_id, item.get('priority_score'))
+        libraryscanner.add_path_to_queue(
+            item.get('path'), library_id, item.get('priority_score'))
 
     while not files_to_test.empty():
         while not files_to_process.empty():
@@ -382,7 +384,8 @@ def test_files(payload: dict):
             items_per_lib[library_id].add(path)
 
     for library_id, items in items_per_lib.items():
-        threading.Thread(target=test_file_thread, args=(list(items), library_id), daemon=True).start()
+        threading.Thread(target=test_file_thread, args=(
+            list(items), library_id), daemon=True).start()
 
 
 def process_files(payload: dict):
@@ -412,13 +415,16 @@ def process_files(payload: dict):
             items_ = items_per_lib[library_id]
             for path in expand_path(path):
                 if is_extension_allowed(library_id, path):
-                    items_.append({"path": path, "priority_score": priority_score})
+                    items_.append(
+                        {"path": path, "priority_score": priority_score})
         else:
-            items_per_lib[library_id].append({"path": path, "priority_score": priority_score})
+            items_per_lib[library_id].append(
+                {"path": path, "priority_score": priority_score})
 
     for library_id, items in items_per_lib.items():
         for item in items:
-            libraryscanner.add_path_to_queue(item['path'], library_id, item['priority_score'])
+            libraryscanner.add_path_to_queue(
+                item['path'], library_id, item['priority_score'])
 
 
 def get_icon(name: str) -> str:
@@ -454,7 +460,8 @@ def load_subtree(path: str, title: str, library_id: int, lazy=True, get_timestam
                         "type":       "folder",
                     })
                 else:
-                    children.append(load_subtree(abspath, name, library_id, lazy=False, get_timestamps=get_timestamps))
+                    children.append(load_subtree(
+                        abspath, name, library_id, lazy=False, get_timestamps=get_timestamps))
             else:
                 if is_extension_allowed(library_id, name):
                     file_info = os.stat(abspath)
@@ -535,7 +542,8 @@ def update_timestamps(payload: dict):
                 distinct.add((library_id, p))
         else:
             distinct.add((library_id, path))
-    items = [(library_id, path) for library_id, path in distinct if is_extension_allowed(library_id, path)]
+    items = [(library_id, path) for library_id,
+             path in distinct if is_extension_allowed(library_id, path)]
 
     values = []
     for library_id, path in items:
@@ -639,7 +647,8 @@ def render_plugin_api(data: PluginApiData) -> PluginApiData:
                 payload = json.loads(body)
             else:
                 payload = {}
-            threading.Thread(target=prune_database, args=(payload,), daemon=True).start()
+            threading.Thread(target=prune_database, args=(
+                payload,), daemon=True).start()
         else:
             data["content"] = {
                 "success": False,

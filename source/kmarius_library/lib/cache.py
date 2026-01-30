@@ -1,18 +1,16 @@
 import sqlite3
 import os
-import logging
 import json
 from typing import Optional
 
 from unmanic.libs import common
+from . import PLUGIN_ID
 
 # TODO: function to clean up orphans
 # TODO: shouldn't have to create a new connection for every operation
 
-logger = logging.getLogger("Unmanic.Plugin.kmarius_library")
-
 DB_PATH = os.path.join(common.get_home_dir(), ".unmanic",
-                       "userdata", "kmarius_library", "metadata.db")
+                       "userdata", PLUGIN_ID, "metadata.db")
 
 
 def _get_connection() -> sqlite3.Connection:
@@ -71,7 +69,7 @@ def put(table: str, path: str, mtime: int, data: dict):
     cur = conn.cursor()
     cur.execute(f'''
                 INSERT INTO {table} (path, mtime, data)
-                VALUES (?, ?, ?) 
+                VALUES (?, ?, ?)
                 ON CONFLICT (path) DO
                 UPDATE SET
                     (mtime, data) = (EXCLUDED.mtime, EXCLUDED.data)

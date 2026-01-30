@@ -1,16 +1,14 @@
 import sqlite3
 import os
-import logging
 
 from unmanic.libs import common
+from . import logger, PLUGIN_ID
 
 # TODO: function to clean up orphans
 # TODO: shouldn't have to create a new connection for every operation
 
-logger = logging.getLogger("Unmanic.Plugin.kmarius_library")
-
 DB_PATH = os.path.join(common.get_home_dir(), ".unmanic",
-                       "userdata", "kmarius_library", "timestamps.db")
+                       "userdata", PLUGIN_ID, "timestamps.db")
 
 if not os.path.exists(os.path.dirname(DB_PATH)):
     os.makedirs(os.path.dirname(DB_PATH))

@@ -3,10 +3,7 @@ import subprocess
 from typing import Optional
 
 from .ffmpeg.probe import Probe
-
-import logging
-
-logger = logging.getLogger("Unmanic.Plugin.kmarius_cache_metadata")
+from . import logger
 
 
 class MetadataProvider:

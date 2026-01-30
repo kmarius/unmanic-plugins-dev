@@ -18,9 +18,9 @@ from unmanic.libs.plugins import PluginsHandler
 from unmanic.libs.unplugins.settings import PluginSettings
 
 try:
-    from kmarius_schedule_scans.plugin_types import *
+    from kmarius_schedule_scans.lib.plugin_types import *
 except ImportError:
-    from plugin_types import *
+    from lib.plugin_types import *
 
 PLUGIN_ID = "kmarius_schedule_scans"
 THREAD_NAME = "kmarius-schedule-scans"
@@ -115,9 +115,11 @@ def _start_library_scan(library_id):
 
     library = Library(library_id)
     if library.get_enable_remote_only():
-        logger.error(f"Scan scheduled but library is remote: {library.get_name()}")
+        logger.error(f"Scan scheduled but library is remote: {
+                     library.get_name()}")
     if not library.get_enable_scanner():
-        logger.error(f"Scan scheduled but scanner is disabled: {library.get_name()}")
+        logger.error(f"Scan scheduled but scanner is disabled: {
+                     library.get_name()}")
         return
 
     logger.info(f"Starting scheduled scan of library {library.get_name()}")
@@ -139,7 +141,8 @@ def _scheduler_main():
                 if re.match(r"^\d{1}:\d{2}$", time_str):
                     time_str = "0" + time_str
                 if not re.match(r"^\d{2}:\d{2}$", time_str):
-                    logger.error(f"Invalid time format for library {lib.name}: '{time_str}'")
+                    logger.error(f"Invalid time format for library {
+                                 lib.name}: '{time_str}'")
                     continue
                 sched.every().day.at(time_str).do(_start_library_scan, lib.id)
 
@@ -154,7 +157,8 @@ def _scheduler_main():
         if delay > 0:
             hours = int(delay) // 3600
             minutes = (int(delay) % 3600) // 60
-            logger.info(f"Next action in {delay:.0f} seconds ({hours} hours, {minutes} minutes)")
+            logger.info(f"Next action in {delay:.0f} seconds ({
+                        hours} hours, {minutes} minutes)")
             thread.sleep(delay)
 
         if len(plugins_handler.get_plugin_list_filtered_and_sorted(plugin_id=PLUGIN_ID, length=1)) == 0:
@@ -167,7 +171,8 @@ def _restart_scheduler_thread():
         if thread.name == THREAD_NAME and hasattr(thread, "stop"):
             thread.stop()
             thread.join()
-    StoppableThread(target=_scheduler_main, name=THREAD_NAME, daemon=True).start()
+    StoppableThread(target=_scheduler_main,
+                    name=THREAD_NAME, daemon=True).start()
 
 
 logger.info("Plugin (re-)loaded.")
