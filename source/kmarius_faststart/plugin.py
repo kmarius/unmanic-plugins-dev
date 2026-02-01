@@ -14,17 +14,14 @@ def is_moov_at_front(path: str) -> bool:
     command = ["ffprobe", "-v", "trace", path]
     pipe = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    out, err = pipe.communicate()
-
-    output = out.decode("utf-8")
-    moov_idx = output.find("moov")
-    mdat_idx = output.find("mdat")
-
-    # apparently the output of ffprobe is not always reliable w.r.t atoms
-    if moov_idx == -1 or mdat_idx == -1:
-        return False
-
-    return moov_idx < mdat_idx
+    for line in pipe.stdout:
+        if b"moov" in line:
+            pipe.kill()
+            return True
+        if b"mdat" in line:
+            pipe.kill()
+            return False
+    return False
 
 
 def on_library_management_file_test(data: dict):
