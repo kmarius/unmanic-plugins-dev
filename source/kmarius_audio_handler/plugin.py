@@ -2,31 +2,32 @@
 # -*- coding: utf-8 -*-
 
 import logging
+from typing import Optional
 
 from kmarius_executor.lib import lazy_init
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_audio_handler")
 
 
-def stream_is_eng(stream_info):
-    return stream_info.get("tags", {}).get("language", "").lower() == "eng"
+def check_stream_lang(stream_info: dict, lang: str) -> bool:
+    return stream_info.get("tags", {}).get("language", "").lower() == lang
 
 
 # try to find an english language stream and return its index. If there are multiple, returns one with the most channels
-def search_eng_idx(streams):
-    eng_idx = None
-    eng_channels = None
+def search_eng_idx(streams: dict) -> Optional[int]:
+    lang_idx = None
+    lang_channels = None
     for idx, stream_info in enumerate(streams):
-        if stream_is_eng(stream_info):
+        if check_stream_lang(stream_info, "eng"):
             channels = stream_info.get("channels", 0)
-            if eng_idx is None or channels > eng_channels:
-                eng_idx = idx
-                eng_channels = channels
-    return eng_idx
+            if lang_idx is None or channels > lang_channels:
+                lang_idx = idx
+                lang_channels = channels
+    return lang_idx
 
 
 # convert non-aac streams to aac
-def audio_stream_mapping(stream_info, idx):
+def audio_stream_mapping(stream_info: dict, idx: int) -> Optional[dict]:
     # TODO: convert > 6 channels to 6?
     codec_name = stream_info["codec_name"]
     if codec_name != "aac":
@@ -42,18 +43,18 @@ def audio_stream_mapping(stream_info, idx):
                 f"{calculated_bitrate}k"
             ]
         return {
-            'stream_mapping':  ['-map', '0:a:{}'.format(idx)],
+            'stream_mapping': ['-map', '0:a:{}'.format(idx)],
             'stream_encoding': stream_encoding,
         }
     return None
 
 
-def on_library_management_file_test(data):
-    kmarius = lazy_init(data, logger)
+def on_library_management_file_test(data: dict):
+    mydata = lazy_init(data, logger)
 
     # TODO: add functionality for foreign language films
 
-    audio_streams = kmarius["streams"]["audio"]
+    audio_streams = mydata["streams"]["audio"]
     audio_mappings = {}
 
     # try to find an english language stream
@@ -65,14 +66,12 @@ def on_library_management_file_test(data):
             mapping = audio_stream_mapping(stream_info, idx)
         else:
             mapping = {
-                'stream_mapping':  [],
+                'stream_mapping': [],
                 'stream_encoding': [],
             }
         if mapping:
             audio_mappings[idx] = mapping
 
-    kmarius["mappings"]["audio"] = audio_mappings
+    mydata["mappings"]["audio"] = audio_mappings
     if len(audio_mappings) > 0:
-        kmarius["add_file_to_pending_tasks"] = True
-
-    return None
+        mydata["add_file_to_pending_tasks"] = True

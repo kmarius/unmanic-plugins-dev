@@ -58,7 +58,7 @@ def get_settings_object(library_id: int) -> Settings:
     return _library_settings[library_id]
 
 
-def on_library_management_file_test(data):
+def on_library_management_file_test(data: dict):
     settings = get_settings_object(data.get('library_id'))
 
     path = data.get("path")
@@ -104,10 +104,8 @@ def on_library_management_file_test(data):
                 })
                 break
 
-    return data
 
-
-def on_worker_process(data):
+def on_worker_process(data: dict):
     settings = get_settings_object(data.get('library_id'))
 
     path = data.get("file_in")
@@ -150,5 +148,3 @@ def on_worker_process(data):
                 modified = True
         if modified:
             metadata.save()
-
-    return data

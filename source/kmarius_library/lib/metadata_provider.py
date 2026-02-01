@@ -17,11 +17,11 @@ class MetadataProvider:
         raise NotImplementedError()
 
     @classmethod
-    def setting_name(cls):
+    def setting_name_enabled(cls):
         return f"cache_{cls.name}"
 
 
-class FFProbeProvider(MetadataProvider):
+class FFprobeProvider(MetadataProvider):
     name = "ffprobe"
     default_enabled = True
 
@@ -52,6 +52,6 @@ class MediaInfoProvider(MetadataProvider):
 
 
 PROVIDERS = [
-    FFProbeProvider,
+    FFprobeProvider,
     MediaInfoProvider
 ]

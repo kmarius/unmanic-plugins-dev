@@ -9,14 +9,12 @@ import os
 logger = logging.getLogger("Unmanic.Plugin.kmarius_container_handler")
 
 
-def on_library_management_file_test(data):
-    kmarius = lazy_init(data, logger)
+def on_library_management_file_test(data: dict):
+    mydata = lazy_init(data, logger)
 
-    split_file_in = os.path.splitext(data.get("path"))
-    extension = split_file_in[1].lstrip(".")
+    _, ext = os.path.splitext(data.get("path"))
+    ext = ext.lower().lstrip(".")
 
-    if extension != "mp4":
-        kmarius["needs_remux"] = True
-        kmarius["add_file_to_pending_tasks"] = True
-
-    return None
+    if ext != "mp4":
+        mydata["needs_remux"] = True
+        mydata["add_file_to_pending_tasks"] = True

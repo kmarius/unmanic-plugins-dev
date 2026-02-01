@@ -9,7 +9,7 @@ from kmarius_library.lib import timestamps
 logger = logging.getLogger("Unmanic.Plugin.kmarius_library_aux")
 
 
-def on_library_management_file_test(data):
+def on_library_management_file_test(data: dict):
     if "shared_info" not in data or "kmarius_library" not in data["shared_info"]:
         return data
     library_id = data["library_id"]

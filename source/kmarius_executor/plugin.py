@@ -15,7 +15,7 @@ kmarius_data = {}
 
 
 class PluginStreamMapper(StreamMapper):
-    def __init__(self, mappings):
+    def __init__(self, mappings: dict):
         super(PluginStreamMapper, self).__init__(
             logger, ['audio', "video", "subtitle", "data", "attachment"])
         self.mappings = mappings
@@ -39,48 +39,48 @@ class PluginStreamMapper(StreamMapper):
         return self.mappings[stream_type][stream_id]
 
 
-def on_library_management_file_test(data):
-    kmarius = lazy_init(data, logger)
+def on_library_management_file_test(data: dict):
+    mydata = lazy_init(data, logger)
     path = data.get("path")
 
-    if kmarius["add_file_to_pending_tasks"]:
+    if mydata["add_file_to_pending_tasks"]:
         data['add_file_to_pending_tasks'] = True
         # pass data to the processor via global variable
+        # TODO: do something more robust, this variable gets wiped on plugin reload
         global kmarius_data
-        kmarius_data[path] = kmarius
-
-    return data
+        kmarius_data[path] = mydata
 
 
-def on_worker_process(data):
+def on_worker_process(data: dict):
     path = data.get("original_file_path")
     if not path in kmarius_data:
         logger.error(f"no data for {path}")
         data["exec_command"] = []
-        return data
+        return
 
-    kmarius = kmarius_data[path]
+    mydata = kmarius_data[path]
     del kmarius_data[path]
 
-    probe = kmarius.get("probe")
-    abspath = data.get('file_in')
+    probe = mydata.get("probe")
+    path = data.get('file_in')
 
-    mapper = PluginStreamMapper(kmarius.get("mappings", {}))
-    mapper.set_default_values(None, abspath, probe)
+    mapper = PluginStreamMapper(mydata.get("mappings", {}))
+    mapper.set_default_values(None, path, probe)
 
-    needs_remux = kmarius.get("needs_remux", False)
-    needs_moov = kmarius.get("moov_to_front", False)
+    needs_remux = mydata.get("needs_remux", False)
+    needs_moov = mydata.get("moov_to_front", False)
 
     if mapper.streams_need_processing() or needs_remux or needs_moov:
-        mapper.set_input_file(abspath)
+        mapper.set_input_file(path)
+
+        file_out = data.get('file_out')
 
         if needs_remux:
-            split_file_out = os.path.splitext(data.get('file_out'))
-            new_file_out = "{}.{}".format(split_file_out[0], "mp4")
-            mapper.set_output_file(new_file_out)
-            data['file_out'] = new_file_out
-        else:
-            mapper.set_output_file(data.get('file_out'))
+            stem, _ = os.path.splitext(file_out)
+            file_out = f"{stem}.mp4"
+            data['file_out'] = file_out
+
+        mapper.set_output_file(file_out)
 
         #  "-map", "-0:t", used in old script but fails here
         mapper.main_options += ["-map_metadata", "-1", "-map_chapters", "-1"]
@@ -96,5 +96,3 @@ def on_worker_process(data):
         parser = Parser(logger)
         parser.set_probe(probe)
         data['command_progress_parser'] = parser.parse_progress
-
-    return data

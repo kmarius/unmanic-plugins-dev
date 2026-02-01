@@ -43,7 +43,7 @@ class StoppableThread(threading.Thread):
     def stopped(self):
         return self._stop_event.is_set()
 
-    def sleep(self, seconds):
+    def sleep(self, seconds: float):
         """Sleep for some time, or until the thread is stopped."""
         return self._stop_event.wait(seconds)
 
@@ -96,7 +96,7 @@ class Settings(PluginSettings):
         return form_settings
 
 
-def _get_thread_by_name(name):
+def _get_thread_by_name(name: str) -> Optional[threading.Thread]:
     for thread in threading.enumerate():
         if thread.name == name:
             return thread
@@ -107,7 +107,7 @@ def _get_library_scanner() -> Optional[LibraryScannerManager]:
     return _get_thread_by_name("LibraryScannerManager")
 
 
-def _start_library_scan(library_id):
+def _start_library_scan(library_id: int):
     scanner = _get_library_scanner()
     if scanner is None:
         logger.error("Could not get library scanner thread")

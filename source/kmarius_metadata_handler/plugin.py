@@ -12,26 +12,31 @@ from kmarius_executor.lib import lazy_init
 logger = logging.getLogger("Unmanic.Plugin.kmarius_metadata_handler")
 
 
-def on_library_management_file_test(data):
-    kmarius = lazy_init(data, logger)
-    probe = kmarius["probe"]
+def on_library_management_file_test(data: dict):
+    mydata = lazy_init(data, logger)
+    probe = mydata["probe"]
 
     # check fail itself for metadata
     tags = probe.get("format", {}).get("tags", {})
     if "title" in tags or "comment" in tags:
-        kmarius["has_metadata"] = True
-        kmarius["add_file_to_pending_tasks"] = True
+        mydata["has_metadata"] = True
+        mydata["add_file_to_pending_tasks"] = True
 
-    if shutil.which('mediainfo') is None:
-        raise Exception("Unable to find executable 'mediainfo'")
+    mediainfo = data["shared_info"].get("mediainfo", None)
 
-    path = data.get("path")
-    command = ["mediainfo", "--output=JSON", path]
-    pipe = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    out, err = pipe.communicate()
+    if mediainfo is None:
+        if shutil.which('mediainfo') is None:
+            raise Exception("Unable to find executable 'mediainfo'")
 
-    mediainfo = json.loads(out.decode("utf-8"))
+        logger.info("no cached mediainfo, running retrieving form file")
+
+        path = data.get("path")
+        command = ["mediainfo", "--output=JSON", path]
+        pipe = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        out, err = pipe.communicate()
+
+        mediainfo = json.loads(out.decode("utf-8"))
 
     has_track_metadata = False
     for track in mediainfo.get("media", {}).get("track", []):
@@ -41,8 +46,8 @@ def on_library_management_file_test(data):
             break
 
     if has_track_metadata:
-        kmarius["add_file_to_pending_tasks"] = True
-        kmarius["has_metadata"] = True
+        mydata["add_file_to_pending_tasks"] = True
+        mydata["has_metadata"] = True
 
         # check all streams for metadata
         streams = {}
@@ -60,7 +65,7 @@ def on_library_management_file_test(data):
             'attachment': 'a',
         }
 
-        mappings = kmarius["mappings"]
+        mappings = mydata["mappings"]
         for stream_type in streams.keys():
             if not stream_type in mappings:
                 mappings[stream_type] = {}
@@ -93,10 +98,8 @@ def on_library_management_file_test(data):
                         ],
                     }
 
-    if kmarius.get("has_metadata", False):
+    if mydata.get("has_metadata", False):
         data["issues"].append({
             "id": "kmarius_metadata_handler",
             "message": f"metadata found: {path}"
         })
-
-    return data

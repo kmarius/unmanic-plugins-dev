@@ -31,18 +31,22 @@ class Settings(PluginSettings):
     }
 
 
-def on_library_management_file_test(data):
+def on_library_management_file_test(data: dict):
     settings = Settings(library_id=data.get('library_id'))
     thresh = settings.get_setting('sample_rate_threshold')
 
     path = data.get("path")
     _, ext = os.path.splitext(path)
-    if ext.lower() != ".flac":
-        return data
+    ext = ext.lower().lstrip(".")
+    if ext != "flac":
+        return
 
     probe = Probe(logger, allowed_mimetypes=['audio'])
-    if not probe.file(path):
-        return None
+    if "ffprobe" in data["shared_info"]:
+        probe.set_probe(data["shared_info"]["ffprobe"])
+    else:
+        if not probe.file(path):
+            return
 
     for stream_info in probe.get('streams', {}):
         if 'sample_rate' in stream_info:
@@ -53,39 +57,38 @@ def on_library_management_file_test(data):
                     "message": f"sample rate too high: {path}"
                 })
 
-    return data
 
-
-def on_worker_process(data):
+def on_worker_process(data: dict):
     settings = Settings(library_id=data.get('library_id'))
     thresh = settings.get_setting('sample_rate_threshold')
     sample_rate = settings.get_setting('target_sample_rate')
     sample_fmt = settings.get_setting('target_sample_fmt')
 
-    path = data.get('file_in')
+    path = data.get("file_in")
     _, ext = os.path.splitext(path)
-    if ext.lower() != ".flac":
-        return data
+    ext = ext.lower().lstrip(".")
+    if ext != "flac":
+        return
 
     probe = Probe(logger, allowed_mimetypes=['audio'])
     if not probe.file(path):
-        return data
+        return
 
     for stream_info in probe.get('streams', {}):
         if 'sample_rate' in stream_info:
             current_sample_rate = int(stream_info['sample_rate'])
             if current_sample_rate <= thresh:
-                return data
+                return
             if current_sample_rate % 44100 == 0:
                 sample_rate = 44100
             elif current_sample_rate % 48000 == 0:
                 sample_rate = 48000
 
-    data['exec_command'] = ['ffmpeg', '-i', path,
-                            '-map', '0', '-map_metadata', '0',
-                            '-c:v', 'copy',  # keep album covers as is
-                            # "-af", "aresample=resampler=soxr", # not avaliable in the container image
-                            '-sample_fmt', sample_fmt, '-ar', str(sample_rate),
-                            data.get('file_out')]
-
-    return data
+    data['exec_command'] = [
+        'ffmpeg', '-i', path,
+        '-map', '0', '-map_metadata', '0',
+        '-c:v', 'copy',  # keep album covers as is
+        # "-af", "aresample=resampler=soxr", # not avaliable in the container image
+        '-sample_fmt', sample_fmt, '-ar', str(sample_rate),
+        data.get('file_out')
+    ]

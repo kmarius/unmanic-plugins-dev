@@ -4,6 +4,7 @@
 import logging
 import subprocess
 import re
+from typing import Optional
 
 from kmarius_executor.lib import lazy_init
 from unmanic.libs.unplugins.settings import PluginSettings
@@ -28,7 +29,7 @@ class Settings(PluginSettings):
     }
 
 
-def _get_bitrate(stream_info, path):
+def _get_bitrate(stream_info: dict, path: str) -> Optional[int]:
     if "bit_rate" in stream_info:
         return int(stream_info["bit_rate"])
     if "tags" in stream_info:
@@ -46,7 +47,7 @@ def _get_bitrate(stream_info, path):
 
 
 # change everything that is not 8bit h264 with a reasonable bit rate
-def needs_encoding(stream_info, path, bitrate_cutoff):
+def needs_encoding(stream_info: dict, path: str, bitrate_cutoff: int) -> bool:
     if stream_info["codec_name"] != "h264":
         return True
 
@@ -64,7 +65,9 @@ def needs_encoding(stream_info, path, bitrate_cutoff):
     return False
 
 
-def video_stream_mapping(stream_info, idx, path, target_bitrate, bitrate_cutoff):
+def video_stream_mapping(
+        stream_info: dict, idx: int, path: str,
+        target_bitrate: int, bitrate_cutoff: int) -> Optional[dict]:
     # remove images
     codec_name = stream_info["codec_name"]
     if codec_name in ["png", "mjpeg"]:
@@ -74,8 +77,11 @@ def video_stream_mapping(stream_info, idx, path, target_bitrate, bitrate_cutoff)
         }
 
     if needs_encoding(stream_info, path, bitrate_cutoff):
-        stream_encoding = [f'-c:v:{idx}', "libx264", "-pix_fmt",
-                           "yuv420p", f"-b:v:{idx}", f"{target_bitrate}"]
+        stream_encoding = [
+            f'-c:v:{idx}', "libx264",
+            "-pix_fmt", "yuv420p",
+            f"-b:v:{idx}", f"{target_bitrate}"
+        ]
         return {
             'stream_mapping': ['-map', '0:v:{}'.format(idx)],
             'stream_encoding': stream_encoding,
@@ -84,14 +90,14 @@ def video_stream_mapping(stream_info, idx, path, target_bitrate, bitrate_cutoff)
     return None
 
 
-def on_library_management_file_test(data):
-    kmarius = lazy_init(data, logger)
+def on_library_management_file_test(data: dict):
+    mydata = lazy_init(data, logger)
 
     settings = Settings(library_id=data.get('library_id'))
     target_bitrate = settings.get_setting('target_bitrate') * 1000
     bitrate_cutoff = settings.get_setting('bitrate_cutoff') * 1000
 
-    video_streams = kmarius["streams"]["video"]
+    video_streams = mydata["streams"]["video"]
     video_mappings = {}
 
     for idx, stream_info in enumerate(video_streams):
@@ -100,8 +106,6 @@ def on_library_management_file_test(data):
         if mapping:
             video_mappings[idx] = mapping
 
-    kmarius["mappings"]["video"] = video_mappings
+    mydata["mappings"]["video"] = video_mappings
     if len(video_mappings) > 0:
-        kmarius["add_file_to_pending_tasks"] = True
-
-    return None
+        mydata["add_file_to_pending_tasks"] = True

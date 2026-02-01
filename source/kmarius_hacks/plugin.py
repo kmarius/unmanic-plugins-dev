@@ -66,7 +66,7 @@ else:
         del FileTest.old_should_file_be_added_to_task_list
 
 
-def render_plugin_api(data):
+def render_plugin_api(data: dict):
     # we call this plugin's endpoint after startup to force loading of all plugins
     data["content"] = {}
     data["content_type"] = "application/json"

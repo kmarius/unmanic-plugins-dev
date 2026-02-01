@@ -142,10 +142,10 @@ class PluginStreamMapper(StreamMapper):
         return args
 
 
-def on_library_management_file_test(data):
-    kmarius = lazy_init(data, logger)
+def on_library_management_file_test(data: dict):
+    mydata = lazy_init(data, logger)
 
-    subtitle_streams = kmarius["streams"]["subtitle"]
+    subtitle_streams = mydata["streams"]["subtitle"]
     subtitle_mappings = {}
 
     # remove all streams
@@ -155,65 +155,56 @@ def on_library_management_file_test(data):
             'stream_encoding': [],
         }
 
-    kmarius["mappings"]["subtitle"] = subtitle_mappings
+    mydata["mappings"]["subtitle"] = subtitle_mappings
     if len(subtitle_mappings) > 0:
-        kmarius["add_file_to_pending_tasks"] = True
-
-    return None
+        mydata["add_file_to_pending_tasks"] = True
 
 
-def on_worker_process(data):
+def on_worker_process(data: dict):
+    settings = Settings(library_id=data.get('library_id'))
+
     # Default to no FFMPEG command required. This prevents the FFMPEG command from running if it is not required
     data['exec_command'] = []
     data['repeat'] = False
 
     # Get the path to the file
-    abspath = data.get('file_in')
+    path = data.get('file_in')
 
     probe = Probe(logger, allowed_mimetypes=['video'])
-    if not probe.file(abspath):
-        return None
-
-    if data.get('library_id'):
-        settings = Settings(library_id=data.get('library_id'))
+    if "ffprobe" in data["shared_info"]:
+        probe_info = data["shared_info"]["ffprobe"]
+        probe.set_probe(probe_info)
     else:
-        settings = Settings()
+        if not probe.file(path):
+            return
 
-    if True:
-        mapper = PluginStreamMapper()
-        mapper.set_settings(settings)
-        mapper.set_probe(probe)
+    mapper = PluginStreamMapper()
+    mapper.set_settings(settings)
+    mapper.set_probe(probe)
 
-        split_original_file_path = os.path.splitext(
-            data.get('original_file_path'))
-        original_file_directory = os.path.dirname(
-            data.get('original_file_path'))
+    original_stem, _ = os.path.splitext(data.get('original_file_path'))
+    original_file_directory = os.path.dirname(data.get('original_file_path'))
 
-        if mapper.streams_need_processing():
-            # Set the input file
-            mapper.set_input_file(abspath)
+    if mapper.streams_need_processing():
+        mapper.set_input_file(path)
 
-            # Get generated ffmpeg args
-            ffmpeg_args = mapper.get_ffmpeg_args()
+        # Get generated ffmpeg args
+        ffmpeg_args = mapper.get_ffmpeg_args()
 
-            # Append STR extract args
-            for sub_stream in mapper.sub_streams:
-                stream_mapping = sub_stream.get('stream_mapping', [])
-                subtitle_tag = sub_stream.get('subtitle_tag')
+        # Append STR extract args
+        for sub_stream in mapper.sub_streams:
+            stream_mapping = sub_stream.get('stream_mapping', [])
+            subtitle_tag = sub_stream.get('subtitle_tag')
+            subtitle_path = os.path.join(original_file_directory, f"{original_stem}.{subtitle_tag}.srt")
 
-                ffmpeg_args += stream_mapping
-                ffmpeg_args += [
-                    "-y",
-                    os.path.join(original_file_directory, "{}{}.srt".format(
-                        split_original_file_path[0], subtitle_tag)),
-                ]
+            ffmpeg_args += stream_mapping
+            ffmpeg_args += ["-y", subtitle_path]
 
-            # Apply ffmpeg args to command
-            data['exec_command'] = ['ffmpeg']
-            data['exec_command'] += ffmpeg_args
+        # Apply ffmpeg args to command
+        data['exec_command'] = ['ffmpeg']
+        data['exec_command'] += ffmpeg_args
 
-            # Set the parser
-            parser = Parser(logger)
-            parser.set_probe(probe)
-            data['command_progress_parser'] = parser.parse_progress
-    return data
+        # Set the parser
+        parser = Parser(logger)
+        parser.set_probe(probe)
+        data['command_progress_parser'] = parser.parse_progress

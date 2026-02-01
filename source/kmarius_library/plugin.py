@@ -26,53 +26,53 @@ class Settings(PluginSettings):
     @staticmethod
     def __build_settings():
         settings = {
-            "ignored_path_patterns":    "",
-            "allowed_extensions":       '',
+            "ignored_path_patterns": "",
+            "allowed_extensions": '',
             "incremental_scan_enabled": True,
-            "quiet_incremental_scan":   True,
-            "caching_enabled":          True,
+            "quiet_incremental_scan": True,
+            "caching_enabled": True,
         }
         form_settings = {
-            "ignored_path_patterns":    {
+            "ignored_path_patterns": {
                 "input_type": "textarea",
-                "label":      "Regular expression patterns of pathes to ignore - one per line"
+                "label": "Regular expression patterns of pathes to ignore - one per line"
             },
-            "allowed_extensions":       {
-                "label":       "Search library only for extensions",
+            "allowed_extensions": {
+                "label": "Search library only for extensions",
                 "description": "A comma separated list of allowed file extensions."
             },
             "incremental_scan_enabled": {
                 "label": "Enable incremental scans (ignore unchanged files)",
             },
-            "quiet_incremental_scan":   {
-                "label":       "Don't spam the logs with unchanged files and timestamp updates.",
-                'display':     'hidden',
+            "quiet_incremental_scan": {
+                "label": "Don't spam the logs with unchanged files and timestamp updates.",
+                'display': 'hidden',
                 "sub_setting": True,
             },
-            "caching_enabled":          {
+            "caching_enabled": {
                 "label": "Enable metadata caching"
             },
         }
 
         settings.update({
-            p.setting_name(): p.default_enabled for p in PROVIDERS
+            p.setting_name_enabled(): p.default_enabled for p in PROVIDERS
         })
         settings.update({
             "quiet_caching": True,
         })
 
         form_settings.update({
-            p.setting_name(): {
-                'label':       f'Enable {p.name} caching',
+            p.setting_name_enabled(): {
+                'label': f'Enable {p.name} caching',
                 "sub_setting": True,
-                'display':     'hidden',
+                'display': 'hidden',
             } for p in PROVIDERS
         })
         form_settings.update({
             "quiet_caching": {
-                'label':       "Don't spam the logs with information on caching.",
+                'label': "Don't spam the logs with information on caching.",
                 "sub_setting": True,
-                'display':     'hidden',
+                'display': 'hidden',
             }
         })
 
@@ -101,7 +101,7 @@ class Settings(PluginSettings):
 
 
 def critical(f):
-    """Decorator to allow only one thread to execute this at a time."""
+    """Decorator to allow only one thread to execute this function at a time."""
     lock = threading.Lock()
 
     def wrapped(*args, **kwargs):
@@ -170,10 +170,9 @@ def update_timestamp(library_id: int, path: str):
 
 def is_extension_allowed(library_id: int, path: str) -> bool:
     extensions = get_allowed_extensions(library_id)
-    ext = os.path.splitext(path)[-1]
-    if ext and ext[1:].lower() in extensions:
-        return True
-    return False
+    _, ext = os.path.splitext(path)
+    ext = ext.lstrip(".").lower()
+    return ext in extensions
 
 
 def is_path_ignored(library_id: int, path: str) -> bool:
@@ -187,9 +186,7 @@ def is_path_ignored(library_id: int, path: str) -> bool:
 def is_file_unchanged(library_id: int, path: str) -> bool:
     mtime = int(os.path.getmtime(path))
     stored_timestamp = timestamps.get(library_id, path, reuse_connection=True)
-    if stored_timestamp == mtime:
-        return True
-    return False
+    return stored_timestamp == mtime
 
 
 def init_shared_data(data: FileTestData, settings: Settings):
@@ -207,11 +204,11 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
 
     if not is_extension_allowed(library_id, path):
         data['add_file_to_pending_tasks'] = False
-        return data
+        return
 
     if is_path_ignored(library_id, path):
         data['add_file_to_pending_tasks'] = False
-        return data
+        return
 
     init_shared_data(data, settings)
 
@@ -219,18 +216,18 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
         if is_file_unchanged(library_id, path):
             if not settings.get_setting("quiet_incremental_scan"):
                 data["issues"].append({
-                    'id':      PLUGIN_ID,
+                    'id': PLUGIN_ID,
                     'message': f"unchanged: {path}, library_id={library_id}"
                 })
             data['add_file_to_pending_tasks'] = False
-            return data
+            return
 
     if settings.get_setting("caching_enabled"):
         mtime = int(os.path.getmtime(path))
         quiet = settings.get_setting("quiet_caching")
 
         for p in PROVIDERS:
-            if not settings.get_setting(p.setting_name()):
+            if not settings.get_setting(p.setting_name_enabled()):
                 continue
 
             res = cache.lookup(p.name, path, mtime)
@@ -248,8 +245,6 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
                 data["shared_info"][p.name] = res
                 cache.put(p.name, path, mtime, res)
 
-    return data
-
 
 def on_postprocessor_task_results(data: TaskResultData) -> Optional[TaskResultData]:
     if data["task_processing_success"] and data["file_move_processes_success"]:
@@ -264,7 +259,7 @@ def on_postprocessor_task_results(data: TaskResultData) -> Optional[TaskResultDa
 
         if caching_enabled:
             for p in PROVIDERS:
-                if settings.get_setting(p.setting_name()):
+                if settings.get_setting(p.setting_name_enabled()):
                     metadata_providers.append(p)
 
         quiet = settings.get_setting("quiet_caching")
@@ -277,9 +272,8 @@ def on_postprocessor_task_results(data: TaskResultData) -> Optional[TaskResultDa
                     # TODO: it could be desirable to not add this file to the db and have it checked again
                     if not settings.get_setting("quiet_incremental_scan"):
                         logger.info(f"Updating timestamp path={
-                                    path} library_id={library_id}")
+                        path} library_id={library_id}")
                     update_timestamp(library_id, path)
-    return data
 
 
 def get_thread(name: str) -> Optional[threading.Thread]:
@@ -453,11 +447,11 @@ def load_subtree(path: str, title: str, library_id: int, lazy=True, get_timestam
             if entry.is_dir():
                 if lazy:
                     children.append({
-                        "title":      name,
+                        "title": name,
                         "library_id": library_id,
-                        "path":       abspath,
-                        "lazy":       True,
-                        "type":       "folder",
+                        "path": abspath,
+                        "lazy": True,
+                        "type": "folder",
                     })
                 else:
                     children.append(load_subtree(
@@ -466,12 +460,12 @@ def load_subtree(path: str, title: str, library_id: int, lazy=True, get_timestam
                 if is_extension_allowed(library_id, name):
                     file_info = os.stat(abspath)
                     files.append({
-                        "title":      name,
+                        "title": name,
                         "library_id": library_id,
-                        "path":       abspath,
-                        "mtime":      int(file_info.st_mtime),
-                        "size":       int(file_info.st_size),
-                        "icon":       get_icon(name),
+                        "path": abspath,
+                        "mtime": int(file_info.st_mtime),
+                        "size": int(file_info.st_size),
+                        "icon": get_icon(name),
                     })
 
     children.sort(key=lambda c: c["title"])
@@ -486,11 +480,11 @@ def load_subtree(path: str, title: str, library_id: int, lazy=True, get_timestam
     children += files
 
     return {
-        "title":      title,
-        "children":   children,
+        "title": title,
+        "children": children,
         "library_id": library_id,
-        "path":       path,
-        "type":       "folder",
+        "path": path,
+        "type": "folder",
     }
 
 
@@ -543,7 +537,7 @@ def update_timestamps(payload: dict):
         else:
             distinct.add((library_id, path))
     items = [(library_id, path) for library_id,
-             path in distinct if is_extension_allowed(library_id, path)]
+    path in distinct if is_extension_allowed(library_id, path)]
 
     values = []
     for library_id, path in items:
@@ -560,11 +554,11 @@ def get_libraries(lazy=True) -> dict:
     libraries = []
     for lib in Libraries().select().where(Libraries.enable_remote_only == False):
         libraries.append({
-            "title":      lib.name,
+            "title": lib.name,
             "library_id": lib.id,
-            "path":       lib.path,
-            "type":       "folder",
-            "lazy":       lazy,
+            "path": lib.path,
+            "type": "folder",
+            "lazy": lazy,
         })
 
     return {
@@ -591,7 +585,8 @@ def prune_database(payload: dict):
 
         paths = []
         for path in timestamps.get_all_paths(library_id):
-            if not is_extension_allowed(library_id, path) or is_path_ignored(library_id, path) or not os.path.exists(path):
+            if not is_extension_allowed(library_id, path) or is_path_ignored(library_id, path) or not os.path.exists(
+                    path):
                 paths.append(path)
 
         timestamps.remove_paths(library_id, paths)
@@ -647,20 +642,17 @@ def render_plugin_api(data: PluginApiData) -> PluginApiData:
                 payload = json.loads(body)
             else:
                 payload = {}
-            threading.Thread(target=prune_database, args=(
-                payload,), daemon=True).start()
+            threading.Thread(target=prune_database, args=(payload,), daemon=True).start()
         else:
             data["content"] = {
                 "success": False,
-                "error":   f"unknown path: {data['path']}",
+                "error": f"unknown path: {data['path']}",
             }
     except Exception as e:
         trace = traceback.format_exc()
         logger.error(trace)
         data["content"] = {
             "success": False,
-            "error":   str(e),
-            "trace":   trace,
+            "error": str(e),
+            "trace": trace,
         }
-
-    return data
