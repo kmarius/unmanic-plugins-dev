@@ -171,12 +171,8 @@ def on_worker_process(data: dict):
     path = data.get('file_in')
 
     probe = Probe(logger, allowed_mimetypes=['video'])
-    if "ffprobe" in data["shared_info"]:
-        probe_info = data["shared_info"]["ffprobe"]
-        probe.set_probe(probe_info)
-    else:
-        if not probe.file(path):
-            return
+    if not probe.file(path):
+        return
 
     mapper = PluginStreamMapper()
     mapper.set_settings(settings)

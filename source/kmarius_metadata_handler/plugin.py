@@ -28,9 +28,9 @@ def on_library_management_file_test(data: dict):
         if shutil.which('mediainfo') is None:
             raise Exception("Unable to find executable 'mediainfo'")
 
-        logger.info("no cached mediainfo, running retrieving form file")
-
         path = data.get("path")
+        logger.info(f"no cached mediainfo, retrieving form file: {path}")
+
         command = ["mediainfo", "--output=JSON", path]
         pipe = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
