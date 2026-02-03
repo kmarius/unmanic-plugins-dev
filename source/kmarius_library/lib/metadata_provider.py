@@ -3,6 +3,7 @@ import subprocess
 from typing import Optional
 
 from .ffmpeg.probe import Probe
+from .mp4box import MP4Box
 from . import logger
 
 
@@ -51,7 +52,21 @@ class MediaInfoProvider(MetadataProvider):
             return None
 
 
+class MP4BoxProvider(MetadataProvider):
+    name = "mp4box"
+    default_enabled = False
+
+    @staticmethod
+    def run_prog(path: str) -> Optional[dict]:
+        try:
+            return MP4Box.probe(path)
+        except Exception as e:
+            logger.error(e)
+            return None
+
+
 PROVIDERS = [
     FFprobeProvider,
-    MediaInfoProvider
+    MediaInfoProvider,
+    MP4BoxProvider,
 ]

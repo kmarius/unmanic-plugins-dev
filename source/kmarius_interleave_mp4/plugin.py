@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
 import os
-import re
-import subprocess
 
 from unmanic.libs.unplugins.settings import PluginSettings
+
 from kmarius_interleave_mp4.lib.plugin_types import *
 from kmarius_interleave_mp4.lib import logger, PLUGIN_ID
-
-from source.kmarius_interleave_mp4.lib.plugin_types import ParseOutput
+from kmarius_interleave_mp4.lib.mp4box import MP4Box
 
 
 class Settings(PluginSettings):
@@ -26,56 +24,8 @@ class Settings(PluginSettings):
         super(Settings, self).__init__(*args, **kwargs)
 
 
-def mp4box_parse_infox(output: str) -> list[dict]:
-    lines = output.splitlines()
-
-    match = re.match(r'^# Movie Info - (\d+) tracks - TimeScale .*$', lines[0])
-    num_tracks = int(match.group(1))
-
-    def consume_stream(lines: list[str]):
-        # Track 6 Info - ID 6 - TimeScale 1000000
-        match = re.match(r'^# Track \d+ Info - ID (\d+) - TimeScale (\d+)$', lines[0])
-        track = {
-            "id": int(match.group(1)),
-            "timescale": int(match.group(2)),
-        }
-        for line in lines[1:]:
-            line = line.strip()
-            if line.startswith('#'):
-                # next track header
-                break
-            if line.startswith('Handler name: '):
-                track["handler_name"] = line[len('Handler Name: '):]
-            if line.startswith('Chunk durations: '):
-                # Chunk durations: min 125 ms - max 1000 ms - average 912 ms
-                match = re.match(r'^Chunk durations:.* average (\d+) ms$', line)
-                track["chunk_duration_average"] = int(match.group(1))
-
-        return track
-
-    tracks = []
-
-    idx = 1
-    for i in range(num_tracks):
-        # seek to stream start
-        while idx < len(lines) and not lines[idx].startswith('#'):
-            idx += 1
-
-        tracks.append(consume_stream(lines[idx:]))
-        idx += 1
-
-    return tracks
-
-
-def mp4box_infox(path: str) -> list[dict]:
-    proc = subprocess.run(["MP4Box", "-infox", path], capture_output=True)
-    proc.check_returncode()
-    return mp4box_parse_infox(proc.stderr.decode("utf-8"))
-
-
-def needs_interleave(path: str, param: int) -> bool:
-    tracks = mp4box_infox(path)
-    for track in tracks:
+def needs_interleave(mp4box: dict, param: int) -> bool:
+    for track in mp4box["tracks"]:
         if track["handler_name"] == "VideoHandler":
             chunk_duration_average = track["chunk_duration_average"]
             if chunk_duration_average < param * 2 / 3 or chunk_duration_average > param * 4 / 3:
@@ -94,25 +44,17 @@ def on_library_management_file_test(data: FileTestData):
     if ext != "mp4":
         return
 
-    if needs_interleave(path, param):
+    if "mp4box" in data["shared_info"]:
+        mp4box = data["shared_info"]["mp4box"]
+    else:
+        mp4box = MP4Box.probe(path)
+
+    if needs_interleave(mp4box, param):
         data["issues"].append({
             'id': PLUGIN_ID,
             'message': f"not interleaved: library_id={library_id} path={path}",
         })
         data["add_file_to_pending_tasks"] = True
-
-
-def _parse_progress(line: str) -> ParseOutput:
-    percent = 100
-
-    # ISO File Writing: |=================== | (99/100)
-    match = re.search(r'\((\d+)/100\)', line)
-    if match:
-        percent = int(match.group(1))
-
-    return {
-        'percent': percent
-    }
 
 
 def on_worker_process(data: ProcessItemData):
@@ -128,4 +70,4 @@ def on_worker_process(data: ProcessItemData):
         return
 
     data['exec_command'] = ['MP4Box', '-inter', str(param), file_in, '-out', file_out]
-    data['command_progress_parser'] = _parse_progress
+    data['command_progress_parser'] = MP4Box.parse_progress
