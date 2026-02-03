@@ -24,7 +24,7 @@ class Settings(PluginSettings):
         super(Settings, self).__init__(*args, **kwargs)
 
 
-def needs_interleave(mp4box: dict, param: int) -> bool:
+def needs_interleaving(mp4box: dict, param: int) -> bool:
     for track in mp4box["tracks"]:
         if "chunk_duration_average" in track:
             chunk_duration_average = track["chunk_duration_average"]
@@ -39,8 +39,8 @@ def on_library_management_file_test(data: FileTestData):
     param = int(settings.get_setting("interleave_parameter"))
 
     path = data["path"]
-    ext = os.path.splitext(path)[-1][1:].lower()
 
+    ext = os.path.splitext(path)[-1][1:].lower()
     if ext != "mp4":
         return
 
@@ -48,15 +48,17 @@ def on_library_management_file_test(data: FileTestData):
         mp4box = data["shared_info"]["mp4box"]
     else:
         mp4box = MP4Box.probe(path)
+        if mp4box:
+            data["shared_info"]["mp4box"] = mp4box
 
     if mp4box is None:
         logger.error(f"No mp4box info for {path}")
         return
 
-    if needs_interleave(mp4box, param):
+    if needs_interleaving(mp4box, param):
         data["issues"].append({
             'id': PLUGIN_ID,
-            'message': f"not interleaved: library_id={library_id} path={path}",
+            'message': f"Not interleaved: library_id={library_id} path={path}",
         })
         data["add_file_to_pending_tasks"] = True
 
@@ -69,7 +71,6 @@ def on_worker_process(data: ProcessItemData):
     file_out = data.get('file_out')
 
     ext = os.path.splitext(file_in)[-1][1:].lower()
-
     if ext != "mp4":
         return
 
