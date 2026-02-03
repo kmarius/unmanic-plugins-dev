@@ -6,7 +6,7 @@ import subprocess
 
 from unmanic.libs.unplugins.settings import PluginSettings
 from kmarius_interleave_mp4.lib.plugin_types import *
-from kmarius_interleave_mp4.lib import logger
+from kmarius_interleave_mp4.lib import logger, PLUGIN_ID
 
 
 class Settings(PluginSettings):
@@ -82,7 +82,8 @@ def needs_interleave(path: str, param: int) -> bool:
 
 
 def on_library_management_file_test(data: FileTestData):
-    settings = Settings(library_id=data["library_id"])
+    library_id = data["library_id"]
+    settings = Settings(library_id=library_id)
     param = int(settings.get_setting("interleave_parameter"))
 
     path = data["path"]
@@ -92,6 +93,10 @@ def on_library_management_file_test(data: FileTestData):
         return
 
     if needs_interleave(path, param):
+        data["issues"].append({
+            'id': PLUGIN_ID,
+            'message': f"not interleaved: library_id={library_id} path={path}",
+        })
         data["add_file_to_pending_tasks"] = True
 
 
