@@ -26,12 +26,10 @@ class Settings(PluginSettings):
 
 def needs_interleave(mp4box: dict, param: int, path) -> bool:
     for track in mp4box["tracks"]:
-        if track["handler_name"] == "VideoHandler":
+        if "chunk_duration_average" in track:
             chunk_duration_average = track["chunk_duration_average"]
             if chunk_duration_average < param * 2 / 3 or chunk_duration_average > param * 4 / 3:
                 return True
-        if track["handler_name"] == "unknown":
-            logger.warning(f"Unknown handlers in {path}: {mp4box}")
     return False
 
 
