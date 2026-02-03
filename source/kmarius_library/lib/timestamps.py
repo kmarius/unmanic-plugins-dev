@@ -1,13 +1,11 @@
 import sqlite3
 import os
-import threading
 from threading import local
+from typing import Mapping, Tuple
 
 from unmanic.libs import common
 from . import logger, PLUGIN_ID
 
-# TODO: function to clean up orphans
-# TODO: shouldn't have to create a new connection for every operation
 
 DB_PATH = os.path.join(common.get_home_dir(), ".unmanic",
                        "userdata", PLUGIN_ID, "timestamps.db")
@@ -27,6 +25,15 @@ def check_column_exists(conn: sqlite3.Connection, table_name: str, column_name: 
 # check the database table, create it if it doesn't exist.
 # migration for the addition of a column consists of dropping the table
 def init():
+    # attempt to migrate old database from the sibling plugin
+    # remove this a year after discontinuing the other plugin
+    if not os.path.exists(DB_PATH):
+        old_db = os.path.join(common.get_home_dir(), ".unmanic",
+                              "userdata", "kmarius_incremental_scan_db", "timestamps.db")
+        if os.path.exists(old_db):
+            logger.info(f"Migrating database from kmarius_incremental_scan_db")
+            os.rename(old_db, DB_PATH)
+
     conn = sqlite3.connect(DB_PATH)
     with conn:
         cursor = conn.cursor()
@@ -99,7 +106,8 @@ def get_many(library_id: int, paths: list[str]):
     with conn:
         cur = conn.cursor()
         mtimes = []
-        # there's better approaches for this, e.g. a long in (...) expression with all values, or a common-table-expression
+
+        # I tested this with a temp relation instead of a loop and int was faster at > 15 items per query
         for path in paths:
             cur.execute(
                 "SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?", (library_id, path))
@@ -124,15 +132,28 @@ def get_all_paths(library_id: int = None) -> list[str]:
     return paths
 
 
+# we directly construct the map here instead of returning a list and creating the map from that
+def get_all(library_id: int) -> Mapping[str, int]:
+    conn = _get_connection()
+    cur = conn.cursor()
+    cur.execute('''
+                SELECT path, mtime
+                FROM timestamps
+                WHERE library_id = ?
+                ''', (library_id,))
+    return dict(cur)
+
+
 def remove_paths(library_id: int, paths: list[str]):
     conn = _get_connection()
     cur = conn.cursor()
     # one by one is good enough for now, I don't think we can use CTEs from python
-    for path in paths:
-        cur.execute('''
-                    DELETE
-                    FROM timestamps
-                    WHERE library_id = ?
-                      AND path = ?
-                    ''', (library_id, path))
-    conn.commit()
+    with conn:
+        for path in paths:
+            cur.execute('''
+                        DELETE
+                        FROM timestamps
+                        WHERE library_id = ?
+                          AND path = ?
+                        ''', (library_id, path))
+        conn.commit()
