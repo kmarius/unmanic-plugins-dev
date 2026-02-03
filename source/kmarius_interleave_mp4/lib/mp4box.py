@@ -1,11 +1,12 @@
 import subprocess
 import re
+from . import logger
 
 
 class MP4Box:
 
     @staticmethod
-    def _parse(output: str) -> dict:
+    def _parse(output: str) -> dict | None:
         lines = output.splitlines()
 
         match = re.match(r'^# Movie Info - (\d+) tracks - TimeScale .*$', lines[0])
@@ -15,6 +16,10 @@ class MP4Box:
         def consume_stream(lines: list[str]):
             # Track 6 Info - ID 6 - TimeScale 1000000
             match = re.match(r'^# Track \d+ Info - ID (\d+) - TimeScale (\d+)$', lines[0])
+            if not match:
+                logger.error(f"malformed mp4box output: {lines[0]}")
+                logger.error(output)
+                return None
             track = {
                 "id": int(match.group(1)),
                 "timescale": int(match.group(2)),
@@ -29,6 +34,10 @@ class MP4Box:
                 if line.startswith('Chunk durations: '):
                     # Chunk durations: min 125 ms - max 1000 ms - average 912 ms
                     match = re.match(r'^Chunk durations:.* average (\d+) ms$', line)
+                    if not match:
+                        logger.error(f"malformed mp4box output: {line}")
+                        logger.error(output)
+                        return None
                     track["chunk_duration_average"] = int(match.group(1))
 
             if "handler_name" not in track:
@@ -42,7 +51,10 @@ class MP4Box:
             while idx < len(lines) and not lines[idx].startswith('#'):
                 idx += 1
 
-            tracks.append(consume_stream(lines[idx:]))
+            track = consume_stream(lines[idx:])
+            if not track:
+                return None
+            tracks.append(track)
             idx += 1
 
         return {
@@ -51,7 +63,7 @@ class MP4Box:
         }
 
     @staticmethod
-    def probe(path) -> dict:
+    def probe(path) -> dict | None:
         proc = subprocess.run(["MP4Box", "-infox", path], capture_output=True)
         proc.check_returncode()
         return MP4Box._parse(proc.stderr.decode("utf-8"))

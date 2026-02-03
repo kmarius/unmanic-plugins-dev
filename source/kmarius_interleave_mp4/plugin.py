@@ -51,6 +51,10 @@ def on_library_management_file_test(data: FileTestData):
     else:
         mp4box = MP4Box.probe(path)
 
+    if mp4box is None:
+        logger.error(f"No mp4box info for {path}")
+        return
+
     if needs_interleave(mp4box, param, path):
         data["issues"].append({
             'id': PLUGIN_ID,
