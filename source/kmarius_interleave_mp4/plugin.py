@@ -32,11 +32,10 @@ def mp4box_parse_infox(output: str) -> list[dict]:
 
     def consume_stream(lines: list[str]):
         # Track 6 Info - ID 6 - TimeScale 1000000
-        match = re.match(r'^# Track (\d+) Info - ID (\d+) - TimeScale (\d+)$', lines[0])
+        match = re.match(r'^# Track \d+ Info - ID (\d+) - TimeScale (\d+)$', lines[0])
         track = {
-            "number": int(match.group(1)),
-            "track_id": int(match.group(2)),
-            "timescale": int(match.group(3)),
+            "id": int(match.group(1)),
+            "timescale": int(match.group(2)),
         }
         for line in lines[1:]:
             line = line.strip()
@@ -68,6 +67,7 @@ def mp4box_parse_infox(output: str) -> list[dict]:
 
 def mp4box_infox(path: str) -> list[dict]:
     proc = subprocess.run(["MP4Box", "-infox", path], capture_output=True)
+    proc.check_returncode()
     return mp4box_parse_infox(proc.stderr.decode("utf-8"))
 
 
@@ -95,7 +95,7 @@ def on_library_management_file_test(data: FileTestData):
         data["add_file_to_pending_tasks"] = True
 
 
-def parse_progress(line):
+def _parse_progress(line):
     percent = 100
 
     # ISO File Writing: |=================== | (99/100)
@@ -121,4 +121,4 @@ def on_worker_process(data: ProcessItemData):
         return
 
     data['exec_command'] = ['MP4Box', '-inter', str(param), file_in, '-out', file_out]
-    data['command_progress_parser'] = parse_progress
+    data['command_progress_parser'] = _parse_progress
