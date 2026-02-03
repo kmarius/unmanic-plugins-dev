@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 import logging
 import os
@@ -7,7 +6,6 @@ import os
 from kmarius_executor.lib import lazy_init
 from kmarius_executor.lib.ffmpeg import StreamMapper, Parser
 
-# Configure plugin logger
 logger = logging.getLogger("Unmanic.Plugin.kmarius_executor")
 
 # we use this to pass data from the tester to the processor
@@ -54,7 +52,7 @@ def on_library_management_file_test(data: dict):
 def on_worker_process(data: dict):
     path = data.get("original_file_path")
     if not path in kmarius_data:
-        logger.error(f"no data for {path}")
+        # an unrelated plugin requested processing
         data["exec_command"] = []
         return
 
