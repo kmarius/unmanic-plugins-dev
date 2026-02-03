@@ -51,7 +51,7 @@ def on_library_management_file_test(data: FileTestData):
     else:
         mp4box = MP4Box.probe(path)
 
-    if needs_interleave(mp4box, param):
+    if needs_interleave(mp4box, param, path):
         data["issues"].append({
             'id': PLUGIN_ID,
             'message': f"not interleaved: library_id={library_id} path={path}",
