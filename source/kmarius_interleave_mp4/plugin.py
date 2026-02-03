@@ -8,6 +8,8 @@ from unmanic.libs.unplugins.settings import PluginSettings
 from kmarius_interleave_mp4.lib.plugin_types import *
 from kmarius_interleave_mp4.lib import logger, PLUGIN_ID
 
+from source.kmarius_interleave_mp4.lib.plugin_types import ParseOutput
+
 
 class Settings(PluginSettings):
     settings = {
@@ -100,7 +102,7 @@ def on_library_management_file_test(data: FileTestData):
         data["add_file_to_pending_tasks"] = True
 
 
-def _parse_progress(line):
+def _parse_progress(line: str) -> ParseOutput:
     percent = 100
 
     # ISO File Writing: |=================== | (99/100)

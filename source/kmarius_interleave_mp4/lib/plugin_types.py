@@ -45,12 +45,14 @@ class TaskResultData (TypedDict):
     destination_files: list
     source_data: dict
 
+class ParseOutput(TypedDict):
+    percent: int
 
 class ProcessItemData (TypedDict):
     worker_log: list
     library_id: int
     exec_command: list[str]
-    command_progress_parser: Callable[[None], None]
+    command_progress_parser: Callable[[str], ParseOutput]
     file_in: str
     file_out: str
     original_file_path: str
