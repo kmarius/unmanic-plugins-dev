@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import logging
 import subprocess
 import re
 from typing import Optional
 
-from kmarius_executor.lib import lazy_init
 from unmanic.libs.unplugins.settings import PluginSettings
+
+from kmarius_executor.lib import lazy_init
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_video_handler")
 

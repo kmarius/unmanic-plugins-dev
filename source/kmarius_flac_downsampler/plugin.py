@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
-
 import logging
 import os
 
-from kmarius_flac_downsampler.lib.ffmpeg import Probe
 from unmanic.libs.unplugins.settings import PluginSettings
+
+from kmarius_flac_downsampler.lib.ffmpeg import Probe
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_flac_downsampler")
 

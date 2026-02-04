@@ -1,26 +1,15 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-# TODO: stop thread when uninstalled
 # TODO: support timezones
 
 import logging
 import re
 import threading
+import schedule
 from typing import Optional, override
 
 from unmanic.libs.library import Libraries, Library
-
-import schedule
-
 from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.plugins import PluginsHandler
 from unmanic.libs.unplugins.settings import PluginSettings
-
-try:
-    from kmarius_schedule_scans.lib.plugin_types import *
-except ImportError:
-    from lib.plugin_types import *
 
 PLUGIN_ID = "kmarius_schedule_scans"
 THREAD_NAME = "kmarius-schedule-scans"

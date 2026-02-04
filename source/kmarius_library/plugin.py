@@ -1,18 +1,13 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import os
 import re
 from typing import Optional, override
 
-from unmanic.libs.filetest import FileTesterThread
 from unmanic.libs.library import Libraries
-from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.unplugins.settings import PluginSettings
 
 from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID
-from kmarius_library.lib.panel import Panel
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
+from kmarius_library.lib.panel import Panel
 from kmarius_library.lib.plugin_types import *
 
 cache.init([p.name for p in PROVIDERS])
@@ -214,7 +209,7 @@ def init_shared_data(data: FileTestData, settings: Settings):
         shared_info["kmarius_library"] = settings
 
 
-def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData]:
+def on_library_management_file_test(data: FileTestData):
     settings = Settings(library_id=data.get('library_id'))
     path = data["path"]
     library_id = data["library_id"]
@@ -263,7 +258,7 @@ def on_library_management_file_test(data: FileTestData) -> Optional[FileTestData
                 cache.put(p.name, path, mtime, res)
 
 
-def on_postprocessor_task_results(data: TaskResultData) -> Optional[TaskResultData]:
+def on_postprocessor_task_results(data: TaskResultData):
     if data["task_processing_success"] and data["file_move_processes_success"]:
         settings = Settings(library_id=data["library_id"])
         incremental_scan_enabled = settings.get_setting(

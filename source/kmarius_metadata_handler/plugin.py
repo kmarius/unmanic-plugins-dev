@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 import json
 import logging
 import subprocess
@@ -8,7 +5,6 @@ import shutil
 
 from kmarius_executor.lib import lazy_init
 
-# Configure plugin logger
 logger = logging.getLogger("Unmanic.Plugin.kmarius_metadata_handler")
 
 
