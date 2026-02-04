@@ -96,9 +96,9 @@ def _test_files_in_lib(library_id: int, items: Set[str]):
     def send_frontend_message(message):
         frontend_messages.update(
             {
-                'id':      'libraryScanProgress',
-                'type':    'status',
-                'code':    'libraryScanProgress',
+                'id': 'libraryScanProgress',
+                'type': 'status',
+                'code': 'libraryScanProgress',
                 'message': message,
                 'timeout': 0
             }
@@ -288,11 +288,11 @@ class Panel:
                         if entry.is_dir():
                             if lazy:
                                 children.append({
-                                    "title":      name,
+                                    "title": name,
                                     "library_id": library_id,
-                                    "path":       abspath,
-                                    "lazy":       True,
-                                    "type":       "folder",
+                                    "path": abspath,
+                                    "lazy": True,
+                                    "type": "folder",
                                 })
                             else:
                                 child = self._load_subtree(abspath, name, library_id,
@@ -304,12 +304,12 @@ class Panel:
                             if self._is_in_library(library_id, abspath):
                                 file_info = os.stat(abspath)
                                 files.append({
-                                    "title":      name,
+                                    "title": name,
                                     "library_id": library_id,
-                                    "path":       abspath,
-                                    "mtime":      int(file_info.st_mtime),
-                                    "size":       int(file_info.st_size),
-                                    "icon":       _get_icon(name),
+                                    "path": abspath,
+                                    "mtime": int(file_info.st_mtime),
+                                    "size": int(file_info.st_size),
+                                    "icon": _get_icon(name),
                                 })
 
             children.sort(key=lambda c: c["title"])
@@ -327,11 +327,11 @@ class Panel:
             children += files
 
         return {
-            "title":      title,
-            "children":   children,
+            "title": title,
+            "children": children,
             "library_id": library_id,
-            "path":       path,
-            "type":       "folder",
+            "path": path,
+            "type": "folder",
         }
 
     def _get_subtree(self, arguments: dict) -> dict:
@@ -410,6 +410,7 @@ class Panel:
         self._assert_libraries_configured()
 
         library_ids = []
+        library_paths = _get_library_paths()
 
         if "library_id" in payload:
             library_ids.append(payload["library_id"])
@@ -423,7 +424,9 @@ class Panel:
 
             paths = []
             for path in timestamps.get_all_paths(library_id):
-                if not self._is_in_library(library_id, path) or not os.path.exists(path):
+                if not _validate_path(path, library_paths[library_id]):
+                    paths.append(path)
+                elif not self._is_in_library(library_id, path) or not os.path.exists(path):
                     paths.append(path)
 
             timestamps.remove_paths(library_id, paths)
@@ -436,11 +439,11 @@ class Panel:
         libraries = []
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             libraries.append({
-                "title":      lib.name,
+                "title": lib.name,
                 "library_id": lib.id,
-                "path":       lib.path,
-                "type":       "folder",
-                "lazy":       lazy,
+                "path": lib.path,
+                "type": "folder",
+                "lazy": lazy,
             })
 
         return {
@@ -462,7 +465,8 @@ class Panel:
         data["content_type"] = "text/html"
 
         # TODO: change PLUGIN_ID in the served file so we can re-use index.html
-        with open(os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'index.html'))) as file:
+        with open(os.path.abspath(
+                os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'index.html'))) as file:
             content = file.read()
             data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
 
@@ -499,13 +503,13 @@ class Panel:
             else:
                 data["content"] = {
                     "success": False,
-                    "error":   f"unknown path: {data['path']}",
+                    "error": f"unknown path: {data['path']}",
                 }
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(trace)
             data["content"] = {
                 "success": False,
-                "error":   str(e),
-                "trace":   trace,
+                "error": str(e),
+                "trace": trace,
             }

@@ -1,11 +1,12 @@
 import sqlite3
 import os
+import time
+
 from threading import local
 from typing import Mapping, Tuple
 
 from unmanic.libs import common
 from . import logger, PLUGIN_ID
-
 
 DB_PATH = os.path.join(common.get_home_dir(), ".unmanic",
                        "userdata", PLUGIN_ID, "timestamps.db")
@@ -41,14 +42,32 @@ def init():
             logger.info(
                 "Table 'timestamps' does not exists or is missing the 'library_id' column. (Re-)creating...")
             cursor.execute("DROP TABLE IF EXISTS timestamps")
+
         cursor.execute('''
                        CREATE TABLE IF NOT EXISTS timestamps
                        (
-                           library_id INTEGER NULL,
-                           path       TEXT    NOT NULL,
-                           mtime      INTEGER NOT NULL,
+                           library_id  INTEGER NULL,
+                           path        TEXT    NOT NULL,
+                           mtime       INTEGER NOT NULL,
+                           last_update INTEGER,
                            PRIMARY KEY (library_id, path)
                        )''')
+
+        if not check_column_exists(conn, "timestamps", "last_update"):
+            logger.info('table is missing last_update column')
+            cursor.execute('''
+                           ALTER TABLE timestamps
+                               ADD COLUMN last_update INTEGER
+                           ''')
+            cursor.execute('''
+                           UPDATE timestamps
+                           SET last_update = mtime
+                           ''')
+
+        cursor.execute('''
+                       CREATE INDEX IF NOT EXISTS idx_last_update ON timestamps (last_update)
+                       ''')
+
     conn.close()
 
 
@@ -71,21 +90,24 @@ def _get_connection(reuse_connection=False) -> sqlite3.Connection:
 def put(library_id: int, path: str, mtime: int):
     conn = _get_connection()
     cur = conn.cursor()
+    now = int(time.time())
     cur.execute('''
-                INSERT INTO timestamps (library_id, path, mtime)
-                VALUES (?, ?, ?)
-                ON CONFLICT(library_id, path) DO UPDATE SET mtime = excluded.mtime
-                ''', (library_id, path, mtime))
+                INSERT INTO timestamps (library_id, path, mtime, last_update)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(library_id, path) DO UPDATE SET (mtime, last_update) = (EXCLUDED.mtime, EXCLUDED.last_update)
+                ''', (library_id, path, mtime, now))
     conn.commit()
 
 
-def put_many(values: list[(int, str, int)]):
+def put_many(values: list[Tuple[int, str, int]]):
     conn = _get_connection()
     cur = conn.cursor()
+    now = int(time.time())
+    values = [value + (now,) for value in values]
     cur.executemany('''
-                    INSERT INTO timestamps (library_id, path, mtime)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(library_id, path) DO UPDATE SET mtime = excluded.mtime
+                    INSERT INTO timestamps (library_id, path, mtime, last_update)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(library_id, path) DO UPDATE SET (mtime, last_update) = (EXCLUDED.mtime, EXCLUDED.last_update)
                     ''', values)
     conn.commit()
 
@@ -98,6 +120,28 @@ def get(library_id: int, path: str, reuse_connection=False):
     row = cur.fetchone()
     mtime = row[0] if row else None
     return mtime
+
+
+def reset_oldest(library_id: int, n: int) -> list[str]:
+    conn = _get_connection()
+    with (conn):
+        cur = conn.cursor()
+        cur.execute('''
+                    SELECT path,library_id
+                    FROM timestamps
+                    WHERE library_id = ?
+                    ORDER BY last_update ASC
+                    LIMIT ?
+                    ''', (library_id, n))
+        rows = cur.fetchall()
+        cur.execute(
+            f'''
+            UPDATE timestamps SET mtime = 0 WHERE rowid IN (SELECT rowid FROM timestamps WHERE library_id = ? ORDER BY last_update ASC LIMIT ?)
+            ''',
+            (library_id, n))
+        conn.commit()
+        return rows
+        #[row[0] for row in rows]
 
 
 # we only allow batch loading with fixed library_id
