@@ -122,12 +122,25 @@ def get(library_id: int, path: str, reuse_connection=False):
     return mtime
 
 
+def get_num_entries(library_id: int = None) -> int:
+    conn = _get_connection()
+    cur = conn.cursor()
+    if library_id:
+        cur.execute('''SELECT count(*)
+                       FROM timestamps
+                       WHERE library_id = ?''', (library_id,))
+    else:
+        cur.execute('''SELECT count(*)
+                       FROM timestamps''')
+    return cur.fetchone()[0]
+
+
 def reset_oldest(library_id: int, n: int) -> list[str]:
     conn = _get_connection()
     with (conn):
         cur = conn.cursor()
         cur.execute('''
-                    SELECT path,library_id
+                    SELECT path, library_id
                     FROM timestamps
                     WHERE library_id = ?
                     ORDER BY last_update ASC
@@ -141,7 +154,7 @@ def reset_oldest(library_id: int, n: int) -> list[str]:
             (library_id, n))
         conn.commit()
         return rows
-        #[row[0] for row in rows]
+        # [row[0] for row in rows]
 
 
 # we only allow batch loading with fixed library_id

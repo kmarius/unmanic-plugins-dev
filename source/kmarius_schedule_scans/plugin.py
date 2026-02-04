@@ -83,7 +83,7 @@ class Settings(PluginSettings):
                     "display": "hidden"
                 },
                 f"library_{lib.id}_reset_old": {
-                    "label": f"Number of oldest files that will be re-tested",
+                    "label": f"Number or percentage of oldest files that will be re-tested (e.g. '7' or '0.5%')",
                     "sub_setting": True,
                     "display": "hidden"
                 },
@@ -135,11 +135,19 @@ def _start_library_scan(library_id: int):
         return
 
     if _have_kmarius_library():
-        reset_old = settings.get_setting(f"library_{library_id}_reset_old")
+        reset_old = settings.get_setting(f"library_{library_id}_reset_old").strip()
         try:
-            if int(reset_old) > 0:
-                from kmarius_library.lib.timestamps import reset_oldest
-                items = reset_oldest(library_id, reset_old)
+            from kmarius_library.lib.timestamps import reset_oldest, get_num_entries
+            if reset_old.endswith("%"):
+                percentage = float(reset_old.replace("%", ""))
+                num_entries = get_num_entries(library_id)
+                num_reset = int(num_entries * percentage / 100)
+                if percentage > 0.0 and num_reset == 0:
+                    num_reset = 1
+            else:
+                num_reset = int(reset_old)
+            if num_reset > 0:
+                items = reset_oldest(library_id, num_reset)
                 logger.info(f"reset {items}")
         except Exception as e:
             logger.error(e)
