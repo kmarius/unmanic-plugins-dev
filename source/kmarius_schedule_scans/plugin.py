@@ -126,6 +126,26 @@ def _get_library_scanner() -> Optional[LibraryScannerManager]:
     return _get_thread_by_name("LibraryScannerManager")
 
 
+def _reset_old_entries(library_id, setting) -> bool:
+    try:
+        from kmarius_library.lib.timestamps import reset_oldest, get_num_entries
+        if setting.endswith("%"):
+            percentage = float(setting.replace("%", ""))
+            num_entries = get_num_entries(library_id)
+            num_reset = int(num_entries * percentage / 100)
+            if percentage > 0.0 and num_reset == 0:
+                num_reset = 1
+        else:
+            num_reset = int(setting)
+        if num_reset > 0:
+            items = reset_oldest(library_id, num_reset)
+            logger.info(f"reset {items}")
+    except Exception as e:
+        logger.error(e)
+        return False
+    return True
+
+
 def _start_library_scan(library_id: int):
     settings = Settings()
 
@@ -136,26 +156,15 @@ def _start_library_scan(library_id: int):
 
     if _have_kmarius_library():
         reset_old = settings.get_setting(f"library_{library_id}_reset_old").strip()
-        try:
-            from kmarius_library.lib.timestamps import reset_oldest, get_num_entries
-            if reset_old.endswith("%"):
-                percentage = float(reset_old.replace("%", ""))
-                num_entries = get_num_entries(library_id)
-                num_reset = int(num_entries * percentage / 100)
-                if percentage > 0.0 and num_reset == 0:
-                    num_reset = 1
-            else:
-                num_reset = int(reset_old)
-            if num_reset > 0:
-                items = reset_oldest(library_id, num_reset)
-                logger.info(f"reset {items}")
-        except Exception as e:
-            logger.error(e)
+        if not _reset_old_entries(library_id, reset_old):
+            return
 
     library = Library(library_id)
     if library.get_enable_remote_only():
         logger.error(f"Scan scheduled but library is remote: {
         library.get_name()}")
+        return
+
     if not library.get_enable_scanner():
         logger.error(f"Scan scheduled but scanner is disabled: {
         library.get_name()}")
