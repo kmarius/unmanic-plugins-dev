@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import logging
 import os
 from typing import override
 
@@ -9,9 +8,7 @@ from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 from unmanic.libs.unplugins.settings import PluginSettings
 
-PLUGIN_ID = "kmarius_audio_metadata_cleaner"
-
-logger = logging.getLogger(f"Unmanic.Plugin.{PLUGIN_ID}")
+from kmarius_audio_metadata_cleaner.lib import logger, PLUGIN_ID
 
 
 class Settings(PluginSettings):
