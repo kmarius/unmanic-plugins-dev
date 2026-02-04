@@ -202,11 +202,24 @@ def _scheduler_main():
         sched.run_pending()
         delay = sched.idle_seconds
 
-        if delay > 0:
-            hours = int(delay) // 3600
-            minutes = (int(delay) % 3600) // 60
-            logger.info(f"Next action in {delay:.0f} seconds ({
-            hours} hours, {minutes} minutes)")
+        if delay > 0.0:
+            if delay >= 1.0:
+                hours = int(delay) // 3600
+                minutes = (int(delay) % 3600) // 60
+                seconds = int(delay) % 60
+
+                if hours > 0:
+                    hours_str = f"{hours} hour{"s" if hours != 1 else ""} "
+                else:
+                    hours_str = ""
+
+                if hours > 0 or minutes > 0:
+                    minutes_str = f"{minutes} minute{"s" if minutes != 1 else ""} "
+                else:
+                    minutes_str = ""
+
+                seconds_str = f"{seconds} second{"s" if seconds != 1 else ""}"
+                logger.info(f"Next action in {hours_str}{minutes_str}{seconds_str}")
             thread.sleep(delay)
 
         if len(plugins_handler.get_plugin_list_filtered_and_sorted(plugin_id=PLUGIN_ID, length=1)) == 0:
