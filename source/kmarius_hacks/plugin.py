@@ -1,12 +1,17 @@
 import os.path
 import signal
+import subprocess
 import uuid
 
+from unmanic.libs import common
 from unmanic.libs.filetest import FileTest
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_hacks.lib import logger
+from kmarius_hacks.lib import logger, PLUGIN_ID
 from kmarius_hacks.lib.plugin_types import *
+
+AUTOSTART_SCRIPT = os.path.join(common.get_home_dir(), ".unmanic",
+                                "plugins", PLUGIN_ID, "init.d", "autostart.sh")
 
 
 class Settings(PluginSettings):
@@ -84,6 +89,9 @@ def render_plugin_api(data: PluginApiData):
         # restarts inside a docker container, otherwise quits unmanic
         logger.info(f"Restart request received, sending SIGINT")
         os.kill(os.getpid(), signal.SIGINT)
+
+        # the autostart script is only called on container start, so we do it now
+        subprocess.call([AUTOSTART_SCRIPT, "1"])
 
     data["content_type"] = "application/json"
     data["content"] = {}
