@@ -9,7 +9,10 @@ class MP4Box:
     def _parse(output: str) -> dict | None:
         lines = output.splitlines()
 
-        match = re.match(r'^# Movie Info - (\d+) tracks - TimeScale .*$', lines[0])
+        match = re.match(r'^# Movie Info - (\d+) tracks? - TimeScale .*$', lines[0])
+        if not match:
+            logger.error(f"unexpected mp4box output: {lines[0]}")
+            return None
         num_tracks = int(match.group(1))
         tracks = []
 
