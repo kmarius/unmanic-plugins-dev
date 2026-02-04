@@ -91,7 +91,7 @@ def render_plugin_api(data: PluginApiData):
         os.kill(os.getpid(), signal.SIGINT)
 
         # the autostart script is only called on container start, so we do it now
-        subprocess.call([AUTOSTART_SCRIPT, "1"])
+        subprocess.call(['/usr/bin/sh', AUTOSTART_SCRIPT, "1"])
 
     data["content_type"] = "application/json"
     data["content"] = {}
