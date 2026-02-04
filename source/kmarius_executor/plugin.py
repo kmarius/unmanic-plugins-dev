@@ -3,10 +3,28 @@
 import logging
 import os
 
+from unmanic.libs.unplugins.settings import PluginSettings
+
 from kmarius_executor.lib import lazy_init
 from kmarius_executor.lib.ffmpeg import StreamMapper, Parser
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_executor")
+
+
+class Settings(PluginSettings):
+    settings = {
+        "apply_faststart": True,
+    }
+    form_settings = {
+        "apply_faststart": {
+            "label": "Apply faststart for MP4 files",
+            "description": "Disable this e.g. if the plugin is followed by the interleave plugin which does the same.",
+        }
+    }
+
+    def __init__(self, *args, **kwargs):
+        super(Settings, self).__init__(*args, **kwargs)
+
 
 # we use this to pass data from the tester to the processor
 kmarius_data = {}
@@ -50,6 +68,9 @@ def on_library_management_file_test(data: dict):
 
 
 def on_worker_process(data: dict):
+    settings = Settings(library_id=data.get("library_id"))
+    apply_faststart = settings.get_setting("apply_faststart")
+
     path = data.get("original_file_path")
     if not path in kmarius_data:
         # an unrelated plugin requested processing
@@ -68,7 +89,7 @@ def on_worker_process(data: dict):
     needs_remux = mydata.get("needs_remux", False)
     needs_moov = mydata.get("moov_to_front", False)
 
-    if mapper.streams_need_processing() or needs_remux or needs_moov:
+    if mapper.streams_need_processing() or needs_remux or (needs_moov and apply_faststart):
         mapper.set_input_file(path)
 
         file_out = data.get('file_out')
@@ -83,8 +104,8 @@ def on_worker_process(data: dict):
         #  "-map", "-0:t", used in old script but fails here
         mapper.main_options += ["-map_metadata", "-1", "-map_chapters", "-1"]
 
-        # we always want moov at front
-        mapper.main_options += ["-movflags", "+faststart"]
+        if apply_faststart:
+            mapper.main_options += ["-movflags", "+faststart"]
 
         ffmpeg_args = mapper.get_ffmpeg_args()
 
