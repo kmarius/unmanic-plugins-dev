@@ -15,6 +15,7 @@ logger = logging.getLogger("Unmanic.Plugin.kmarius_metadata_handler")
 def on_library_management_file_test(data: dict):
     mydata = lazy_init(data, logger)
     probe = mydata["probe"]
+    path = data.get("path")
 
     # check fail itself for metadata
     tags = probe.get("format", {}).get("tags", {})
@@ -28,7 +29,6 @@ def on_library_management_file_test(data: dict):
         if shutil.which('mediainfo') is None:
             raise Exception("Unable to find executable 'mediainfo'")
 
-        path = data.get("path")
         logger.info(f"no cached mediainfo, retrieving form file: {path}")
 
         command = ["mediainfo", "--output=JSON", path]
