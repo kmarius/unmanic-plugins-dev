@@ -72,5 +72,14 @@ def on_worker_process(data: ProcessItemData):
     if ext != "mp4":
         return
 
+    mp4box = MP4Box.probe(file_in)
+    if mp4box is None:
+        logger.error(f"No mp4box info path={file_in}")
+        return
+
+    if not needs_interleaving(mp4box, param):
+        logger.info(f"No interleaving required path={file_in}")
+        return
+
     data['exec_command'] = ['MP4Box', '-inter', str(param), file_in, '-out', file_out]
     data['command_progress_parser'] = MP4Box.parse_progress
