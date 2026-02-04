@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
+    />
+    <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/wunderbaum@0/dist/wunderbaum.min.css"
+    />
+    <style>
+        section {
+            margin-bottom: 8px; /* Adds space after the section, above the tree view */
+        }
+    </style>
+    <script>
+        const PLUGIN_ID = "kmarius_library";
+
+        function showRestartAlert() {
+            document.getElementById("restart-alert").style.display = "block";
+        }
+
+        function clearRestartAlert() {
+            document.getElementById("restart-alert").style.display = "none";
+        }
+
+        function setRestartAlertText(text) {
+            document.getElementById("restart-alert").textContent = text;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+
+            let timer_id = undefined;
+
+            document
+                .querySelector("#restart-unmanic")
+                .addEventListener("click", async _ => {
+                    await fetch("/unmanic/plugin_api/kmarius_hacks/restart", {
+                        method: 'POST'
+                    });
+
+                    showRestartAlert();
+
+                    if (timer_id === undefined) {
+                        let seconds = 0;
+                        timer_id = setInterval(async function () {
+                            setRestartAlertText(`Waiting for unmanic to restart... (${++seconds} seconds passed)`);
+
+                            try {
+                                let response = await fetch("/unmanic/plugin_api/kmarius_hacks", {
+                                    method: 'GET'
+                                });
+                                if (response.ok) {
+                                    clearInterval(timer_id);
+                                    timer_id = undefined;
+                                    clearRestartAlert();
+                                }
+                            } catch (e) {
+                            }
+                        }, 1000);
+                    }
+                });
+        });
+    </script>
+</head>
+
+<div style="display:flex; flex-direction: row; justify-content: left; align-items: center">
+    <button
+            id="restart-unmanic"
+            class="icon-button"
+            title="Restart Unmanic"
+            style="margin-right: 10px;"
+    >
+        <i class="bi bi-bootstrap-reboot"></i>
+    </button>
+    <span class="alert-text" id="restart-alert" style="display:none">Waiting for unmanic to restart...</span>
+</div>
+
+</html>

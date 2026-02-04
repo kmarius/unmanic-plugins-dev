@@ -1,10 +1,12 @@
-import logging
 import os.path
+import signal
+import uuid
 
 from unmanic.libs.filetest import FileTest
 from unmanic.libs.unplugins.settings import PluginSettings
 
-logger = logging.getLogger("Unmanic.Plugin.kmarius_hacks")
+from kmarius_hacks.lib import logger
+from kmarius_hacks.lib.plugin_types import *
 
 
 class Settings(PluginSettings):
@@ -68,10 +70,28 @@ else:
         del FileTest.old_should_file_be_added_to_task_list
         removed += 1
 
-logger.info(f"{applied} {"patch" if applied == 1 else "patches"} applied, {removed} {"patch" if removed == 1 else "patches"} removed")
+logger.info(
+    f"{applied} {"patch" if applied == 1 else "patches"} applied, {removed} {"patch" if removed == 1 else "patches"} removed")
 
 
-def render_plugin_api(data: dict):
-    # we call this plugin's endpoint after startup to force loading of all plugins
-    data["content"] = {}
+def render_plugin_api(data: PluginApiData):
+    path = data["path"]
+
+    if path == "/":
+        # we call this plugin's endpoint after startup to force loading of all plugins
+        pass
+    elif path == "/restart":
+        # restarts inside a docker container, otherwise quits unmanic
+        logger.info(f"Restart request received, sending SIGINT")
+        os.kill(os.getpid(), signal.SIGINT)
+
     data["content_type"] = "application/json"
+    data["content"] = {}
+
+
+def render_frontend_panel(data: PanelData):
+    data["content_type"] = "text/html"
+
+    with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:
+        content = file.read()
+        data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
