@@ -27,11 +27,9 @@ def on_library_management_file_test(data: dict):
 
     if mydata.get("add_file_to_pending_tasks", False):
         # we only need to test if no other ffmpeg commands run, because we always move the moov atom
-        return data
+        return
 
-    _, ext = os.path.splitext(path)
-    ext = ext.lstrip(".").lower()
-
+    ext = os.path.splitext(path)[-1][1:].lower()
     if ext == "mp4" and not is_moov_at_front(path):
         data["issues"].append({
             'id': "kmarius_faststart_handler",
