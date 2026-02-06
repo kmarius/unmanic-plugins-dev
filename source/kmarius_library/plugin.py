@@ -253,16 +253,16 @@ def on_library_management_file_test(data: FileTestData):
 
             if res is None:
                 if not quiet:
-                    logger.info(
-                        f"No cached {p.name} data found, refreshing - {path}")
+                    logger.info(f"No cached {p.name} data found, refreshing - {path}")
                 res = p.run_prog(path)
+                if res:
+                    cache.put(p.name, path, mtime, res)
             else:
                 if not quiet:
                     logger.info(f"Cached {p.name} data found - {path}")
 
             if res:
                 data["shared_info"][p.name] = res
-                cache.put(p.name, path, mtime, res)
 
 
 def on_postprocessor_task_results(data: TaskResultData):

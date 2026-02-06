@@ -13,8 +13,10 @@ class MP4Box:
         if not match:
             logger.error(f"unexpected mp4box output: {lines[0]}")
             return None
+
         num_tracks = int(match.group(1))
         tracks = []
+        progressive = False
 
         def consume_stream(lines: list[str]):
             # Track 6 Info - ID 6 - TimeScale 1000000
@@ -49,6 +51,12 @@ class MP4Box:
             return track
 
         idx = 1
+
+        while idx < len(lines) and not lines[idx].startswith('#'):
+            if lines[idx].startswith('Progressive'):
+                progressive = True
+            idx += 1
+
         for i in range(num_tracks):
             # seek to stream start
             while idx < len(lines) and not lines[idx].startswith('#'):
@@ -63,6 +71,7 @@ class MP4Box:
         return {
             "num_tracks": num_tracks,
             "tracks": tracks,
+            "progressive": progressive,
         }
 
     @staticmethod
