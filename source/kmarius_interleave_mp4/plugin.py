@@ -22,13 +22,17 @@ class Settings(PluginSettings):
         super(Settings, self).__init__(*args, **kwargs)
 
 
-def needs_interleaving(mp4box: dict, param: int) -> bool:
+def is_interleaved(mp4box: dict, param: int) -> bool:
     for track in mp4box["tracks"]:
         if "chunk_duration_average" in track:
             chunk_duration_average = track["chunk_duration_average"]
             if chunk_duration_average < param * 2 / 3 or chunk_duration_average > param * 4 / 3:
-                return True
-    return False
+                return False
+    return True
+
+
+def is_progressive(mp4box: dict) -> bool:
+    return mp4box.get("progressive", False)
 
 
 def on_library_management_file_test(data: FileTestData):
@@ -38,7 +42,7 @@ def on_library_management_file_test(data: FileTestData):
 
     path = data["path"]
 
-    ext = os.path.splitext(path)[-1][1:].lower()
+    ext = os.path.splitext(path)[1][1:].lower()
     if ext != "mp4":
         return
 
@@ -50,10 +54,10 @@ def on_library_management_file_test(data: FileTestData):
             data["shared_info"]["mp4box"] = mp4box
 
     if mp4box is None:
-        logger.error(f"No mp4box info for {path}")
+        logger.error(f"No mp4box info: path={path}")
         return
 
-    if needs_interleaving(mp4box, param):
+    if not is_progressive(mp4box) or not is_interleaved(mp4box, param):
         data["issues"].append({
             'id': PLUGIN_ID,
             'message': f"Not interleaved: library_id={library_id} path={path}",
@@ -68,17 +72,17 @@ def on_worker_process(data: ProcessItemData):
     file_in = data.get("file_in")
     file_out = data.get('file_out')
 
-    ext = os.path.splitext(file_in)[-1][1:].lower()
+    ext = os.path.splitext(file_in)[1][1:].lower()
     if ext != "mp4":
         return
 
     mp4box = MP4Box.probe(file_in)
     if mp4box is None:
-        logger.error(f"No mp4box info path={file_in}")
+        logger.error(f"No mp4box info: path={file_in}")
         return
 
-    if not needs_interleaving(mp4box, param):
-        logger.info(f"No interleaving required path={file_in}")
+    if is_progressive(mp4box) and is_interleaved(mp4box, param):
+        logger.info(f"No processing required: path={file_in}")
         return
 
     data['exec_command'] = MP4Box.build_command(file_in, file_out, param)
