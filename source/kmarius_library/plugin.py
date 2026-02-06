@@ -114,6 +114,13 @@ class CombinedSettings:
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             self.configured_for.append(lib.id)
 
+    def is_valid(self) -> bool:
+        """Check whether the configuration is still valid. If not, it should be re-created."""
+        for lib in Libraries().select().where(Libraries.enable_remote_only == False):
+            if not lib.id in self.configured_for:
+                return False
+        return True
+
     def get_setting(self, key=None):
         match = re.match(r"^library_(\d+)_(.*)", key)
         if match:

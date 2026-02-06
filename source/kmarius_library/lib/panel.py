@@ -3,17 +3,16 @@ import os
 import queue
 import re
 import threading
-import time
 import traceback
 import uuid
-from typing import Mapping, Optional, Set
+from typing import Mapping, Optional, Collection
 
 from unmanic.libs.filetest import FileTesterThread
 from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.unmodels import Libraries
 
-from .plugin_types import *
 from . import timestamps, logger
+from .plugin_types import *
 
 
 def critical(f):
@@ -39,7 +38,7 @@ def _get_thread(name: str) -> Optional[threading.Thread]:
     return None
 
 
-def _get_libraryscanner() -> LibraryScannerManager:
+def _get_libraryscanner() -> Optional[LibraryScannerManager]:
     return _get_thread("LibraryScannerManager")
 
 
@@ -52,14 +51,6 @@ def _get_library_paths() -> Mapping[int, str]:
 
 def _validate_path(path: str, library_path: str) -> bool:
     return path.startswith("/") and "/.." not in path and path.startswith(library_path)
-
-
-def _expand_path(path: str) -> list[str]:
-    res = []
-    for dirpath, _, filenames in os.walk(path):
-        for filename in filenames:
-            res.append(os.path.join(dirpath, filename))
-    return res
 
 
 # possibly make this configurable
@@ -75,23 +66,23 @@ def _get_icon(name: str) -> str:
         return "bi bi-file-earmark"
 
 
-def _test_files_in_lib(library_id: int, items: Set[str]):
+def _test_files_in_lib(library_id: int, items: Collection[str]):
     num_files = len(items)
     if num_files == 0:
         return
 
-    libraryscanner = _get_libraryscanner()
-    num_threads = libraryscanner.settings.get_concurrent_file_testers()
+    scanner = _get_libraryscanner()
+    num_threads = scanner.settings.get_concurrent_file_testers()
 
     # pre-fill queue
     files_to_test = queue.Queue()
+    files_to_process = queue.Queue()
     for item in items:
         files_to_test.put(item)
-    files_to_process = queue.Queue()
 
-    event = libraryscanner.event
+    event = scanner.event
     status_updates = queue.Queue()
-    frontend_messages = libraryscanner.data_queues.get('frontend_messages')
+    frontend_messages = scanner.data_queues.get('frontend_messages')
 
     def send_frontend_message(message):
         frontend_messages.update(
@@ -114,8 +105,8 @@ def _test_files_in_lib(library_id: int, items: Set[str]):
         tester.start()
         threads.append(tester)
 
-    def queue_up_result(item):
-        libraryscanner.add_path_to_queue(
+    def queue_up_result(item: dict):
+        scanner.add_path_to_queue(
             item.get('path'), library_id, item.get('priority_score'))
 
     current_file = ''
@@ -151,9 +142,16 @@ def _test_files_in_lib(library_id: int, items: Set[str]):
 
 
 @critical
-def _test_files_thread(items_per_lib: Mapping[int, Set[str]]):
+def _test_files_thread(items_per_lib: Mapping[int, Collection[str]]):
     for library_id, paths in items_per_lib.items():
         _test_files_in_lib(library_id, paths)
+
+
+def _unpack_items(body: dict) -> list[dict]:
+    if "arr" in body:
+        return body["arr"]
+    else:
+        return [body]
 
 
 class Panel:
@@ -166,7 +164,15 @@ class Panel:
         self._allowed_extensions = {}
         self._ignore_patterns = {}
 
-    def _is_extension_allowed(self, library_id: int, path: str) -> bool:
+    # recreate the configuration if a new library is added
+    # it should be fine to do this in _get_libraries and _prune_database, because
+    # there is no other way to access a new library through the panel
+    def _assert_configuration_valid(self):
+        if not self.settings.is_valid():
+            logger.info("Configuration invalid. Recreating...")
+            self.settings = self.settings_cl()
+
+    def _get_allowed_extensions(self, library_id: int) -> list[str] | None:
         if library_id not in self._allowed_extensions:
             extensions = self.settings.get_setting(f"library_{library_id}_extensions").split(",")
             extensions = [ext.strip().lstrip(".") for ext in extensions]
@@ -174,14 +180,16 @@ class Panel:
             if len(extensions) == 0:
                 extensions = None
             self._allowed_extensions[library_id] = extensions
-        extensions = self._allowed_extensions[library_id]
+        return self._allowed_extensions[library_id]
+
+    def _is_extension_allowed(self, library_id: int, path: str) -> bool:
+        extensions = self._get_allowed_extensions(library_id)
         if not extensions:
             return True
-        _, ext = os.path.splitext(path)
-        ext = ext.lstrip(".").lower()
+        ext = os.path.splitext(path)[1][1:].lower()
         return ext in extensions
 
-    def _is_path_ignored(self, library_id: int, path: str) -> bool:
+    def _get_ignore_patterns(self, library_id: int) -> list[re.Pattern] | None:
         if library_id not in self._ignore_patterns:
             patterns = []
             for pattern in self.settings.get_setting(f"library_{library_id}_ignored_paths").splitlines():
@@ -189,7 +197,10 @@ class Panel:
                 if pattern != "" and not pattern.startswith("#"):
                     patterns.append(re.compile(pattern))
             self._ignore_patterns[library_id] = patterns
-        for pattern in self._ignore_patterns[library_id]:
+        return self._ignore_patterns[library_id]
+
+    def _is_path_ignored(self, library_id: int, path: str) -> bool:
+        for pattern in self._get_ignore_patterns(library_id):
             if pattern.search(path):
                 return True
         return False
@@ -197,51 +208,57 @@ class Panel:
     def _is_in_library(self, library_id: int, path: str) -> bool:
         return self._is_extension_allowed(library_id, path) and not self._is_path_ignored(library_id, path)
 
-    def _test_files(self, payload: dict):
+    def _walk_library(self, library_id: int, path: str, followlinks=False) -> list[str]:
+        extensions = self._get_allowed_extensions(library_id)
+        patterns = self._get_ignore_patterns(library_id)
+        res = []
+        for dirpath, _, filenames in os.walk(path, followlinks=followlinks):
+            for filename in filenames:
+                if extensions:
+                    ext = os.path.splitext(filename)[1][1:].lower()
+                    if ext not in extensions:
+                        continue
+                path = os.path.join(dirpath, filename)
+                for pattern in patterns:
+                    if pattern.match(path):
+                        continue
+                res.append(path)
+        return res
+
+    def _test_files(self, items: list[dict]):
         library_paths = _get_library_paths()
 
-        if "arr" in payload:
-            items = payload["arr"]
-        else:
-            items = [payload]
-
-        items_per_lib = {}
+        distinct_per_lib = {}
 
         for item in items:
             library_id = item["library_id"]
             path = item["path"]
 
             if not _validate_path(path, library_paths[library_id]):
-                raise Exception("Invalid path")
+                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
 
-            if not library_id in items_per_lib:
-                items_per_lib[library_id] = set()
+            if not library_id in distinct_per_lib:
+                distinct_per_lib[library_id] = set()
 
             if os.path.isdir(path):
-                items_ = items_per_lib[library_id]
-                for path in _expand_path(path):
-                    if self._is_in_library(library_id, path):
-                        items_.add(path)
+                distinct_per_lib[library_id].update(self._walk_library(library_id, path))
             else:
-                items_per_lib[library_id].add(path)
+                distinct_per_lib[library_id].add(path)
 
         threading.Thread(
             target=_test_files_thread,
-            args=(items_per_lib,),
+            args=(distinct_per_lib,),
             daemon=True
         ).start()
 
-    def _process_files(self, payload: dict):
+    def _process_files(self, items: list[dict]):
         library_paths = _get_library_paths()
 
-        libraryscanner = _get_libraryscanner()
+        scanner = _get_libraryscanner()
+        if not scanner:
+            raise Exception(f"Could not get LibraryScanner thread")
 
-        if "arr" in payload:
-            items = payload["arr"]
-        else:
-            items = [payload]
-
-        items_per_lib = {}
+        distinct = set()
 
         for item in items:
             library_id = item["library_id"]
@@ -249,25 +266,16 @@ class Panel:
             priority_score = item["priority_score"]
 
             if not _validate_path(path, library_paths[library_id]):
-                raise Exception("Invalid path")
-
-            if not library_id in items_per_lib:
-                items_per_lib[library_id] = []
+                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
 
             if os.path.isdir(path):
-                items_ = items_per_lib[library_id]
-                for path in _expand_path(path):
-                    if self._is_in_library(library_id, path):
-                        items_.append(
-                            {"path": path, "priority_score": priority_score})
+                for path in self._walk_library(library_id, path):
+                    distinct.add((library_id, path, priority_score))
             else:
-                items_per_lib[library_id].append(
-                    {"path": path, "priority_score": priority_score})
+                distinct.add((library_id, path, priority_score))
 
-        for library_id, items in items_per_lib.items():
-            for item in items:
-                libraryscanner.add_path_to_queue(
-                    item['path'], library_id, item['priority_score'])
+        for library_id, path, priority_score in distinct:
+            scanner.add_path_to_queue(path, library_id, priority_score)
 
     # this function can't load single files currently, only directories with their files
     def _load_subtree(self, path: str, title: str, library_id: int, lazy=True, hide_empty=False,
@@ -279,6 +287,7 @@ class Panel:
             with os.scandir(path) as entries:
                 for entry in entries:
                     name = entry.name
+                    # we unconditionally skip all dotfiles and -dirs
                     if name.startswith("."):
                         continue
 
@@ -334,11 +343,7 @@ class Panel:
             "type": "folder",
         }
 
-    def _get_subtree(self, arguments: dict) -> dict:
-        library_id = int(arguments["library_id"][0])
-        path = arguments["path"][0].decode('utf-8')
-        title = arguments["title"][0].decode('utf-8')
-
+    def _get_subtree(self, library_id, path, title) -> dict:
         library = Libraries().select().where(Libraries.id == library_id).first()
 
         if library.enable_remote_only:
@@ -359,55 +364,56 @@ class Panel:
         return self._load_subtree(path, title, library_id, lazy=lazy, hide_empty=hide_empty,
                                   prune_ignored=prune_ignored, timestamp_cache=timestamp_cache)
 
-    def _reset_timestamps(self, payload: dict):
-        if "arr" in payload:
-            items = [(item["library_id"], item["path"]) for item in payload["arr"]]
-        else:
-            items = [(payload["library_id"], payload["path"])]
-
+    def _reset_timestamps(self, items: list[dict]):
+        library_paths = _get_library_paths()
         distinct = set()
-        for library_id, path in items:
+        for item in items:
+            library_id = item["library_id"]
+            path = item["path"]
+
+            if not _validate_path(path, library_paths[library_id]):
+                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
+
             if os.path.isdir(path):
-                for p in _expand_path(path):
-                    distinct.add((library_id, p))
+                for p in self._walk_library(library_id, path):
+                    distinct.add((library_id, p, 0))
             else:
-                distinct.add((library_id, path))
-        values = [(library_id, path, 0) for library_id, path in distinct if
-                  self._is_in_library(library_id, path)]
+                distinct.add((library_id, path, 0))
+        values = list(distinct)
 
         timestamps.put_many(values)
         logger.info(f"Reset {len(values)} timestamps")
 
-    def _update_timestamps(self, payload: dict):
-        if "arr" in payload:
-            items = [(item["library_id"], item["path"]) for item in payload["arr"]]
-        else:
-            items = [(payload["library_id"], payload["path"])]
-
+    def _update_timestamps(self, items: list[dict]):
+        library_paths = _get_library_paths()
         distinct = set()
-        for library_id, path in items:
+        for item in items:
+            library_id = item["library_id"]
+            path = item["path"]
+
+            if not _validate_path(path, library_paths[library_id]):
+                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
+
             if os.path.isdir(path):
-                for p in _expand_path(path):
+                for p in self._walk_library(library_id, path):
                     distinct.add((library_id, p))
             else:
                 distinct.add((library_id, path))
-        items = [(library_id, path) for library_id,
-        path in distinct if self._is_in_library(library_id, path)]
 
         values = []
-        for library_id, path in items:
+        for library_id, path in distinct:
             try:
                 mtime = int(os.path.getmtime(path))
                 values.append((library_id, path, mtime))
             except OSError as e:
-                logger.error(f"{e}")
+                logger.error(f"{e}: library_id={library_id} path={path}")
 
         timestamps.put_many(values)
         logger.info(f"Updated {len(values)} timestamps")
 
     @critical
     def _prune_database(self, payload: dict):
-        self._assert_libraries_configured()
+        self._assert_configuration_valid()
 
         library_ids = []
         library_paths = _get_library_paths()
@@ -435,7 +441,7 @@ class Panel:
         logger.info(f"Pruned {num_pruned} orphans")
 
     def _get_libraries(self, lazy=True) -> dict:
-        self._assert_libraries_configured()
+        self._assert_configuration_valid()
         libraries = []
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             libraries.append({
@@ -450,16 +456,6 @@ class Panel:
             "children": libraries,
         }
 
-    # recreate the configuration if a new library is added
-    # it should be fine to do this in _get_libraries and _prune_database, because
-    # there is no other way to access a new library through the panel
-    def _assert_libraries_configured(self):
-        for lib in Libraries().select().where(Libraries.enable_remote_only == False):
-            if not lib.id in self.settings.configured_for:
-                logger.info("recreating config")
-                self.settings = self.settings_cl()
-                return
-
     @staticmethod
     def render_frontend_panel(data: PanelData):
         data["content_type"] = "text/html"
@@ -473,38 +469,43 @@ class Panel:
     def render_plugin_api(self, data: PluginApiData):
         data['content_type'] = 'application/json'
 
-        path = data["path"]
+        arguments = data["arguments"]
+        for arg, ls in arguments.items():
+            arguments[arg] = [val.decode('utf-8') for val in ls]
+
+        if len(data["body"]) == 0:
+            body = {}
+        else:
+            body = json.loads(data["body"].decode('utf-8'))
 
         try:
-            if path == "/test":
-                self._test_files(json.loads(data["body"].decode('utf-8')))
-            elif path == '/process':
-                self._process_files(json.loads(data["body"].decode('utf-8')))
-            elif path == '/subtree':
-                t0 = time.time()
-                data["content"] = self._get_subtree(data["arguments"])
-                t1 = time.time()
-                logger.info(f"Processing subtree took {(t1 - t0) * 1000:.2f} ms")
-            elif path == "/libraries":
-                data["content"] = self._get_libraries()
-            elif path == "/timestamp/reset":
-                self._reset_timestamps(json.loads(data["body"].decode('utf-8')))
-            elif path == "/timestamp/update":
-                self._update_timestamps(json.loads(data["body"].decode('utf-8')))
-            elif path == "/prune":
-                body = data["body"].decode('utf-8')
-                if body.startswith("{"):
-                    payload = json.loads(body)
-                else:
-                    payload = {}
-                threading.Thread(target=self._prune_database,
-                                 args=(payload,),
-                                 daemon=True).start()
-            else:
-                data["content"] = {
-                    "success": False,
-                    "error": f"unknown path: {data['path']}",
-                }
+            match data["path"]:
+                case "/test":
+                    self._test_files(_unpack_items(body))
+                case '/process':
+                    self._process_files(_unpack_items(body))
+                case '/subtree':
+                    data["content"] = self._get_subtree(
+                        int(arguments["library_id"][0]),
+                        arguments["path"][0],
+                        arguments["title"][0]
+                    )
+                case "/libraries":
+                    data["content"] = self._get_libraries()
+                case "/timestamp/reset":
+                    self._reset_timestamps(_unpack_items(body))
+                case "/timestamp/update":
+                    self._update_timestamps(_unpack_items(body))
+                case "/prune":
+                    threading.Thread(target=self._prune_database,
+                                     args=(body,),
+                                     daemon=True).start()
+                case _:
+                    data["content"] = {
+                        "success": False,
+                        "error": f"unknown path: {data['path']}",
+                    }
+
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(trace)
