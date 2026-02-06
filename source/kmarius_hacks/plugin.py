@@ -18,6 +18,7 @@ class Settings(PluginSettings):
     settings = {
         "test_failed_tasks": False,
         "check_existing_before_test": False,
+        "enable_data_panel": False,
     }
 
     form_settings = {
@@ -27,6 +28,10 @@ class Settings(PluginSettings):
         },
         "check_existing_before_test": {
             "label": "Ensure that files exist before running the test flow.",
+            "description": "This only affects newly spawned file tester threads."
+        },
+        "enable_data_panel": {
+            "label": "Enable data panel with restart button.",
             "description": "This only affects newly spawned file tester threads."
         },
     }
@@ -78,7 +83,6 @@ else:
 logger.info(
     f"{applied} {"patch" if applied == 1 else "patches"} applied, {removed} {"patch" if removed == 1 else "patches"} removed")
 
-
 def render_plugin_api(data: PluginApiData):
     path = data["path"]
 
@@ -97,9 +101,10 @@ def render_plugin_api(data: PluginApiData):
     data["content"] = {}
 
 
-def render_frontend_panel(data: PanelData):
-    data["content_type"] = "text/html"
+if settings.get_setting("enable_data_panel"):
+    def render_frontend_panel(data: PanelData):
+        data["content_type"] = "text/html"
 
-    with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:
-        content = file.read()
-        data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
+        with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:
+            content = file.read()
+            data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
