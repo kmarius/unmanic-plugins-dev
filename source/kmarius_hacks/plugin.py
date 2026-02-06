@@ -14,88 +14,113 @@ AUTOSTART_SCRIPT = os.path.join(common.get_home_dir(), ".unmanic",
                                 "plugins", PLUGIN_ID, "init.d", "autostart.sh")
 
 
+class Patch:
+    def __init__(self, clazz, method_name, new_method, label, description):
+        self._clazz = clazz
+        self._method_name = method_name
+        self._old_name = Patch.get_real_name(method_name)
+        self._new_method = new_method
+        self.setting_name = f"{self._clazz.__name__}.{self._method_name}"
+        self.setting = False
+        self.form_setting = {
+            "label": label,
+            "description": description,
+        }
+
+    def apply(self):
+        if not hasattr(self._clazz, self._old_name):
+            logger.info(f"Patching {self.setting_name}")
+            setattr(self._clazz, self._old_name, getattr(self._clazz, self._method_name))
+            setattr(self._clazz, self._method_name, self._new_method)
+
+    def remove(self):
+        if hasattr(self._clazz, self._old_name):
+            logger.info(f"Removing patch {self.setting_name}")
+            setattr(self._clazz, self._method_name, getattr(self._clazz, self._old_name))
+            delattr(self._clazz, self._old_name)
+
+    def patch(self, settings):
+        if settings.get_setting(self.setting_name):
+            self.apply()
+        else:
+            self.remove()
+
+    @staticmethod
+    def get_real_name(name):
+        return f"_original_{name}"
+
+
+def file_failed_in_history(self, path):
+    return False
+
+
+def should_file_be_added_to_task_list(self, path):
+    if not os.path.exists(path):
+        return False, [], 0
+    return getattr(self, Patch.get_real_name("should_file_be_added_to_task_list"))(path)
+
+
+PATCHES = [
+    Patch(
+        FileTest,
+        "file_failed_in_history",
+        file_failed_in_history,
+        "Run file testers on tasks even if they are marked as failed in the task history.",
+        "This setting only affects newly spawned file tester threads."
+    ),
+    Patch(
+        FileTest,
+        "should_file_be_added_to_task_list",
+        should_file_be_added_to_task_list,
+        "Ensure that files exist before running the test flow.",
+        "This setting only affects newly spawned file tester threads.",
+    )
+]
+
+
 class Settings(PluginSettings):
     settings = {
-        "test_failed_tasks": False,
-        "check_existing_before_test": False,
         "enable_data_panel": False,
     }
-
     form_settings = {
-        "test_failed_tasks": {
-            "label": "Run file testers on tasks even if they are marked as failed in the history.",
-            "description": "This only affects newly spawned file tester threads."
-        },
-        "check_existing_before_test": {
-            "label": "Ensure that files exist before running the test flow.",
-            "description": "This only affects newly spawned file tester threads."
-        },
         "enable_data_panel": {
             "label": "Enable data panel with restart button.",
-            "description": "This only affects newly spawned file tester threads."
+            "description": "Disabling requires a restart."
         },
     }
+
+    for patch in PATCHES:
+        settings.update({
+            patch.setting_name: patch.setting
+        })
+        form_settings.update({
+            patch.setting_name: patch.form_setting
+        })
 
     def __init__(self, *args, **kwargs):
         super(Settings, self).__init__(*args, **kwargs)
 
 
 settings = Settings()
-applied = 0
-removed = 0
 
-if settings.get_setting("test_failed_tasks"):
-    def file_failed_in_history(self, path):
-        return False
+for patch in PATCHES:
+    patch.patch(settings)
 
-
-    if not hasattr(FileTest, "old_file_failed_in_history"):
-        logger.info("Patching FileTest.file_failed_in_history")
-        FileTest.old_file_failed_in_history = FileTest.file_failed_in_history
-        FileTest.file_failed_in_history = file_failed_in_history
-        applied += 1
-else:
-    if hasattr(FileTest, "old_file_failed_in_history"):
-        logger.info("Unpatching FileTest.file_failed_in_history")
-        FileTest.file_failed_in_history = FileTest.old_file_failed_in_history
-        del FileTest.old_file_failed_in_history
-        removed += 1
-
-if settings.get_setting("check_existing_before_test"):
-    def new_should_file_be_added_to_task_list(self, path):
-        if not os.path.exists(path):
-            return False, [], 0
-        return self.old_should_file_be_added_to_task_list(path)
-
-
-    if not hasattr(FileTest, "old_should_file_be_added_to_task_list"):
-        logger.info("Patching FileTest.should_file_be_added_to_task_list")
-        FileTest.old_should_file_be_added_to_task_list = FileTest.should_file_be_added_to_task_list
-        FileTest.should_file_be_added_to_task_list = new_should_file_be_added_to_task_list
-        applied += 1
-else:
-    if hasattr(FileTest, "old_should_file_be_added_to_task_list"):
-        logger.info("Unpatching FileTest.should_file_be_added_to_task_list")
-        FileTest.should_file_be_added_to_task_list = FileTest.old_should_file_be_added_to_task_list
-        del FileTest.old_should_file_be_added_to_task_list
-        removed += 1
-
-logger.info(
-    f"{applied} {"patch" if applied == 1 else "patches"} applied, {removed} {"patch" if removed == 1 else "patches"} removed")
 
 def render_plugin_api(data: PluginApiData):
-    path = data["path"]
+    match data["path"]:
+        case "/":
+            # we call this plugin's endpoint after startup to force loading of all plugins
+            pass
+        case "/restart":
+            # restarts inside a docker container, otherwise quits unmanic
+            logger.info(f"Restart request received, sending SIGINT")
+            os.kill(os.getpid(), signal.SIGINT)
 
-    if path == "/":
-        # we call this plugin's endpoint after startup to force loading of all plugins
-        pass
-    elif path == "/restart":
-        # restarts inside a docker container, otherwise quits unmanic
-        logger.info(f"Restart request received, sending SIGINT")
-        os.kill(os.getpid(), signal.SIGINT)
-
-        # the autostart script is only called on container start, so we do it now
-        subprocess.call(['/usr/bin/sh', AUTOSTART_SCRIPT, "1"])
+            # the autostart script is only called on container start, so we do it now
+            # TODO: do we need a higher delay or a mechanism to make sure unmanic has quit
+            # and doesn't respond to the startup script before it shuts down?
+            subprocess.call(['/usr/bin/sh', AUTOSTART_SCRIPT, "1"])
 
     data["content_type"] = "application/json"
     data["content"] = {}
