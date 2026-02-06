@@ -460,7 +460,6 @@ class Panel:
     def render_frontend_panel(data: PanelData):
         data["content_type"] = "text/html"
 
-        # TODO: change PLUGIN_ID in the served file so we can re-use index.html
         with open(os.path.abspath(
                 os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'index.html'))) as file:
             content = file.read()

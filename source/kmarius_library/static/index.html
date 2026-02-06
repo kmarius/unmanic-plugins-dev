@@ -43,7 +43,11 @@
     </style>
     <script>
         const ENABLE_EXTENDED_ACTIONS = true;
-        const PLUGIN_ID = "kmarius_library";
+
+        let match = window.location.href.match(/\/unmanic\/panel\/([^\/]+)\//);
+        if (match == null)
+            throw new Error("Could not determine plugin ID");
+        const PLUGIN_ID = match[1];
 
         const actions_default = `<select tabindex="-1">
                 <option value="reload">Refresh</option>
