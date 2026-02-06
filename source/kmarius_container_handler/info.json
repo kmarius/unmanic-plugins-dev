@@ -8,8 +8,8 @@
   "id": "kmarius_container_handler",
   "name": "FFmpeg Container Handler",
   "priorities": {
-    "on_library_management_file_test": 0
+    "on_library_management_file_test": 20
   },
   "tags": "library file test",
-  "version": "0.0.4"
+  "version": "0.0.5"
 }
