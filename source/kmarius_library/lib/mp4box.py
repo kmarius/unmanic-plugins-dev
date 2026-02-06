@@ -72,7 +72,13 @@ class MP4Box:
         return MP4Box._parse(proc.stderr.decode("utf-8"))
 
     @staticmethod
+    def build_command(file_in: str, file_out: str, param: int) -> list[str]:
+        """Build MP4Box command to add interleaving to a file."""
+        return ['MP4Box', '-inter', str(param), file_in, '-out', file_out]
+
+    @staticmethod
     def parse_progress(line: str):
+        """Parse output of MP4Box interleaving command."""
         percent = 100
 
         # ISO File Writing: |=================== | (99/100)

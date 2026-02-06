@@ -81,5 +81,5 @@ def on_worker_process(data: ProcessItemData):
         logger.info(f"No interleaving required path={file_in}")
         return
 
-    data['exec_command'] = ['MP4Box', '-inter', str(param), file_in, '-out', file_out]
+    data['exec_command'] = MP4Box.build_command(file_in, file_out, param)
     data['command_progress_parser'] = MP4Box.parse_progress
