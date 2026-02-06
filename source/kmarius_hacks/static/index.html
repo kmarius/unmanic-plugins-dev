@@ -61,19 +61,36 @@
                         }, 1000);
                     }
                 });
+            document
+                .querySelector("#init-unmanic")
+                .addEventListener("click", async _ => {
+                    await fetch("/unmanic/plugin_api/kmarius_hacks/init", {
+                        method: 'POST'
+                    });
+                });
         });
     </script>
 </head>
 
-<div style="display:flex; flex-direction: row; justify-content: left; align-items: center">
+<div style="display:flex; flex-direction: row; justify-content: left; align-items: center; margin-bottom: 0.5em;">
     <button
             id="restart-unmanic"
             title="Restart Unmanic"
-            style="margin-right: 10px;"
+            style="width:100px;margin-right: 10px;"
     >
         Restart
     </button>
     <span class="alert-text" id="restart-alert" style="display:none">Waiting for unmanic to restart...</span>
 </div>
+<div style="display:flex; flex-direction: row; justify-content: left; align-items: center">
+    <button
+            id="init-unmanic"
+            title="Run custom init.d scripts"
+            style="width:100px;margin-right: 10px;"
+    >
+        init.d
+    </button>
+</div>
+
 
 </html>

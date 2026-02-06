@@ -1,6 +1,7 @@
 import os.path
 import signal
 import subprocess
+import threading
 import uuid
 
 from unmanic.libs import common
@@ -12,6 +13,22 @@ from kmarius_hacks.lib.plugin_types import *
 
 AUTOSTART_SCRIPT = os.path.join(common.get_home_dir(), ".unmanic",
                                 "plugins", PLUGIN_ID, "init.d", "autostart.sh")
+
+
+def critical(f):
+    """Decorator to allow only one thread to execute this function at a time."""
+    lock = threading.Lock()
+
+    def wrapped(*args, **kwargs):
+        if not lock.acquire(blocking=False):
+            logger.info("Could not acquire lock")
+            return
+        try:
+            f(*args, **kwargs)
+        finally:
+            lock.release()
+
+    return wrapped
 
 
 class Patch:
@@ -107,6 +124,25 @@ for patch in PATCHES:
     patch.patch(settings)
 
 
+@critical
+def run_init_d_scripts():
+    proc = subprocess.Popen(["/etc/cont-init.d/60-custom-setup-script"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # we read stdout completely before reading stderr, surely the script wouldn't fill up its stderr buffer
+    for line in proc.stdout:
+        line = line.decode("utf-8")
+        if line[-1] == "\n":
+            line = line[:-1]
+        logger.info(line)
+    for line in proc.stderr:
+        line = line.decode("utf-8")
+        if line[-1] == "\n":
+            line = line[:-1]
+        logger.error(line)
+
+    proc.wait()
+    logger.info(f"exit status: {proc.returncode}")
+
+
 def render_plugin_api(data: PluginApiData):
     match data["path"]:
         case "/":
@@ -121,6 +157,10 @@ def render_plugin_api(data: PluginApiData):
             # TODO: do we need a higher delay or a mechanism to make sure unmanic has quit
             # and doesn't respond to the startup script before it shuts down?
             subprocess.call(['/usr/bin/sh', AUTOSTART_SCRIPT, "1"])
+        case "/init":
+            threading.Thread(target=run_init_d_scripts, daemon=True).start()
+        case path:
+            logger.error(f"Unrecognized patch: {path}")
 
     data["content_type"] = "application/json"
     data["content"] = {}
