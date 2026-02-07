@@ -55,6 +55,7 @@ class Settings(PluginSettings):
                 f"library_{lib.id}_cron_enabled": False,
                 f"library_{lib.id}_scan_time": "00:00",
                 f"library_{lib.id}_reset_old": "0",
+                f"library_{lib.id}_check_old_metadata": "0",
             })
         return settings
 
@@ -72,7 +73,12 @@ class Settings(PluginSettings):
                     "display": "hidden"
                 },
                 f"library_{lib.id}_reset_old": {
-                    "label": f"Number or percentage of oldest files that will be re-tested (e.g. '7' or '0.5%')",
+                    "label": f"Percentage of oldest files that will be re-tested (e.g. '7' or '0.5%')",
+                    "sub_setting": True,
+                    "display": "hidden"
+                },
+                f"library_{lib.id}_check_old_metadata": {
+                    "label": f"Percentage of oldest database entries that will be checked to be pruned (e.g. '7' or '0.5%')",
                     "sub_setting": True,
                     "display": "hidden"
                 },
@@ -92,7 +98,6 @@ class Settings(PluginSettings):
             self._PluginSettings__import_configured_settings()
         if self.settings_configured:
             for setting, val in self.settings_configured.items():
-
                 if setting.endswith("_cron_enabled"):
                     if val:
                         scan_time = setting.replace("_cron_enabled", "_scan_time")
@@ -101,6 +106,10 @@ class Settings(PluginSettings):
                         delete_old = setting.replace("_cron_enabled", "_reset_old")
                         if _have_kmarius_library():
                             del form_settings[delete_old]["display"]
+
+                        check_old = setting.replace("_cron_enabled", "_check_old_metadata")
+                        if _have_kmarius_library():
+                            del form_settings[check_old]["display"]
         return form_settings
 
 
@@ -117,18 +126,25 @@ def _get_library_scanner() -> Optional[LibraryScannerManager]:
 
 def _reset_old_entries(library_id, setting) -> bool:
     try:
-        from kmarius_library.lib.timestamps import reset_oldest, get_num_entries
-        if setting.endswith("%"):
-            percentage = float(setting.replace("%", ""))
-            num_entries = get_num_entries(library_id)
-            num_reset = int(num_entries * percentage / 100)
-            if percentage > 0.0 and num_reset == 0:
-                num_reset = 1
-        else:
-            num_reset = int(setting)
-        if num_reset > 0:
-            items = reset_oldest(library_id, num_reset)
+        from kmarius_library.lib.timestamps import reset_oldest
+        from kmarius_library.lib import prune_timestamps
+        percent = float(setting.rstrip("%").strip())
+        if percent > 0:
+            items = reset_oldest(library_id, percent / 100)
+            prune_timestamps(library_id, percent / 100, set_last_update=False)
             logger.info(f"reset {items}")
+    except Exception as e:
+        logger.error(e)
+        return False
+    return True
+
+
+def _check_old_metadata(setting):
+    try:
+        from kmarius_library.lib import prune_metadata
+        percent = float(setting.rstrip("%").strip())
+        if percent > 0:
+            prune_metadata(percent / 100)
     except Exception as e:
         logger.error(e)
         return False
@@ -144,6 +160,7 @@ def _start_library_scan(library_id: int):
         return
 
     if _have_kmarius_library():
+        # this resets the oldest N entries, and checks for their existence, oes not modify last_update
         reset_old = settings.get_setting(f"library_{library_id}_reset_old").strip()
         if not _reset_old_entries(library_id, reset_old):
             return
@@ -161,6 +178,10 @@ def _start_library_scan(library_id: int):
 
     logger.info(f"Starting scheduled scan of library {library.get_name()}")
     scanner.scan_library_path(library.get_path(), library_id)
+
+    if _have_kmarius_library():
+        check_old = settings.get_setting(f"library_{library_id}_check_old_metadata").strip()
+        _check_old_metadata(check_old)
 
 
 def _scheduler_main():

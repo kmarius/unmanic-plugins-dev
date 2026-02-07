@@ -1,10 +1,11 @@
 import os
 import re
-from typing import Optional, override
+from typing import override
 
-from unmanic.libs.library import Libraries
+from unmanic.libs.library import Libraries, Library
 from unmanic.libs.unplugins.settings import PluginSettings
 
+import kmarius_library.lib
 from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
 from kmarius_library.lib.panel import Panel
@@ -249,14 +250,14 @@ def on_library_management_file_test(data: FileTestData):
             if not settings.get_setting(p.setting_name_enabled()):
                 continue
 
-            res = cache.lookup(p.name, path, mtime)
+            res = cache.get(p.name, path, mtime, reuse_connection=True)
 
             if res is None:
                 if not quiet:
                     logger.info(f"No cached {p.name} data found, refreshing - {path}")
                 res = p.run_prog(path)
                 if res:
-                    cache.put(p.name, path, mtime, res)
+                    cache.put(p.name, path, mtime, res, reuse_connection=True)
             else:
                 if not quiet:
                     logger.info(f"Cached {p.name} data found - {path}")
@@ -268,25 +269,24 @@ def on_library_management_file_test(data: FileTestData):
 def on_postprocessor_task_results(data: TaskResultData):
     if data["task_processing_success"] and data["file_move_processes_success"]:
         settings = Settings(library_id=data["library_id"])
-        incremental_scan_enabled = settings.get_setting(
-            "incremental_scan_enabled")
+        incremental_scan_enabled = settings.get_setting("incremental_scan_enabled")
         caching_enabled = settings.get_setting("caching_enabled")
 
         library_id = data["library_id"]
 
-        metadata_providers = []
+        enabled_providers = []
 
         if caching_enabled:
             for p in PROVIDERS:
                 if settings.get_setting(p.setting_name_enabled()):
-                    metadata_providers.append(p)
+                    enabled_providers.append(p)
 
         quiet = settings.get_setting("quiet_caching")
 
         for path in data["destination_files"]:
             if combined_settings.is_extension_allowed(library_id, path):
                 if caching_enabled:
-                    update_cached_metadata(metadata_providers, path, quiet)
+                    update_cached_metadata(enabled_providers, path, quiet)
                 if incremental_scan_enabled:
                     # TODO: it could be desirable to not add this file to the db and have it checked again
                     if not settings.get_setting("quiet_incremental_scan"):
@@ -295,20 +295,45 @@ def on_postprocessor_task_results(data: TaskResultData):
                     update_timestamp(library_id, path)
 
 
-def _prune_metadata():
-    # we don't care whether caching is enabled for a library or not
-    # we prune all items, that are in no library
+def _prune_timestamps(library_id=None, fraction=1.0, set_last_update=True):
+    num_pruned = 0
+
+    if library_id:
+        library_ids = [library_id]
+    else:
+        library_ids = []
+        for lib in Libraries().select().where(Libraries.enable_remote_only == False):
+            library_ids.append(lib.id)
+
+    for library_id in library_ids:
+        library_path = Library(library_id).get_path()
+
+        def keep_entry(path: str) -> bool:
+            if not path.startswith(library_path):
+                return False
+            if not combined_settings.is_extension_allowed(library_id, path):
+                return False
+            if combined_settings.is_path_ignored(library_id, path):
+                return False
+            if not os.path.exists(path):
+                return False
+            return True
+
+        num_pruned += timestamps.check_oldest(library_id, fraction, keep_entry, set_last_update=set_last_update)
+    logger.info(f"Pruned {num_pruned} timestamps")
+
+
+def _prune_metadata(fraction=1.0):
+    all_paths = set(timestamps.get_all_paths())
 
     num_pruned = 0
-    all_paths = set(timestamps.get_all_paths())
     for p in PROVIDERS:
-        paths = []
-        for path in cache.get_all_paths(p.name):
-            if not path in all_paths:
-                paths.append(path)
-        cache.remove_paths(p.name, paths)
-        num_pruned += len(paths)
+        num_pruned += cache.check_oldest(p.name, fraction, lambda path: path in all_paths)
     logger.info(f"Pruned {num_pruned} metadata items")
+
+
+kmarius_library.lib.prune_timestamps = _prune_timestamps
+kmarius_library.lib.prune_metadata = _prune_metadata
 
 
 def render_frontend_panel(data: PanelData):
