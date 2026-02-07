@@ -5,7 +5,6 @@ from typing import override
 from unmanic.libs.library import Libraries, Library
 from unmanic.libs.unplugins.settings import PluginSettings
 
-import kmarius_library.lib
 from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
 from kmarius_library.lib.panel import Panel
@@ -24,7 +23,7 @@ class Settings(PluginSettings):
             "ignored_paths": "",
             "incremental_scan_enabled": True,
             "reset_old_timestamps": "1%",
-            "check_old_metadata": "10%",
+            "check_old_metadata": "5%",
             "quiet_incremental_scan": True,
             "caching_enabled": True,
         }
@@ -51,7 +50,7 @@ class Settings(PluginSettings):
                 "sub_setting": True,
             },
             "quiet_incremental_scan": {
-                "label": "Don't spam the logs with unchanged files and timestamp updates.",
+                "label": "Don't log unchanged files.",
                 'display': 'hidden',
                 "sub_setting": True,
             },
@@ -76,7 +75,7 @@ class Settings(PluginSettings):
         })
         form_settings.update({
             "quiet_caching": {
-                'label': "Don't spam the logs with information on caching.",
+                'label': "Don't log successful cache lookups.",
                 "sub_setting": True,
                 'display': 'hidden',
             }
@@ -192,7 +191,7 @@ panel = Panel(CombinedSettings)
 combined_settings = CombinedSettings()
 
 
-def update_cached_metadata(providers: list[MetadataProvider], path: str, quiet: bool = True):
+def update_cached_metadata(providers: list[MetadataProvider], path: str):
     try:
         mtime = int(os.path.getmtime(path))
 
@@ -204,8 +203,7 @@ def update_cached_metadata(providers: list[MetadataProvider], path: str, quiet: 
 
             if res:
                 cache.put(p.name, path, mtime, res)
-                if not quiet:
-                    logger.info(f"Updating {p.name} data - {path}")
+                logger.info(f"Updating {p.name} data - {path}")
     except Exception as e:
         logger.error(e)
 
@@ -269,8 +267,7 @@ def on_library_management_file_test(data: FileTestData):
             res = cache.get(p.name, path, mtime, reuse_connection=True)
 
             if res is None:
-                if not quiet:
-                    logger.info(f"No cached {p.name} data found, refreshing - {path}")
+                logger.info(f"No cached {p.name} data found, refreshing - {path}")
                 res = p.run_prog(path)
                 if res:
                     cache.put(p.name, path, mtime, res, reuse_connection=True)
@@ -297,16 +294,13 @@ def on_postprocessor_task_results(data: TaskResultData):
                 if settings.get_setting(p.setting_name_enabled()):
                     enabled_providers.append(p)
 
-        quiet = settings.get_setting("quiet_caching")
-
         for path in data["destination_files"]:
             if combined_settings.is_extension_allowed(library_id, path):
                 if caching_enabled:
-                    update_cached_metadata(enabled_providers, path, quiet)
+                    update_cached_metadata(enabled_providers, path)
                 if incremental_scan_enabled:
                     # TODO: it could be desirable to not add this file to the db and have it checked again
-                    if not settings.get_setting("quiet_incremental_scan"):
-                        logger.info(f"Updating timestamp path={path} library_id={library_id}")
+                    logger.info(f"Updating timestamp path={path} library_id={library_id}")
                     update_timestamp(library_id, path)
 
 
