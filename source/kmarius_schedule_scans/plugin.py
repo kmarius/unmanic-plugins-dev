@@ -1,10 +1,9 @@
-# TODO: support timezones
-
 import re
 import threading
-
 import schedule
 from typing import Optional, override
+import pytz
+from datetime import datetime
 
 from unmanic.libs.library import Libraries, Library
 from unmanic.libs.libraryscanner import LibraryScannerManager
@@ -35,10 +34,17 @@ class StoppableThread(threading.Thread):
         return self._stop_event.wait(seconds)
 
 
+def _get_timezone() -> str:
+    with open("/etc/timezone") as f:
+        return f.read().strip("\n")
+
+
 class Settings(PluginSettings):
     @staticmethod
     def __build_settings():
-        settings = {}
+        settings = {
+            "timezone": "Europe/Berlin",
+        }
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             settings.update({
                 f"library_{lib.id}_cron_enabled": False,
@@ -48,7 +54,12 @@ class Settings(PluginSettings):
 
     @staticmethod
     def __build_form_settings():
-        form_settings = {}
+        form_settings = {
+            "timezone": {
+                "label": "Timezone",
+                "description": "Timezone setting, must be parsable by pytz (e.g. UTC or Europe/Berlin)",
+            },
+        }
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             form_settings.update({
                 f"library_{lib.id}_cron_enabled": {
@@ -116,12 +127,24 @@ def _start_library_scan(library_id: int):
     scanner.scan_library_path(library.get_path(), library_id)
 
 
+def _convert_time(time_str, original_tz_str, target_tz_str):
+    original_tz = pytz.timezone(original_tz_str)
+    target_tz = pytz.timezone(target_tz_str)
+    naive_dt = datetime.strptime(time_str, "%H:%M")
+    original_dt = original_tz.localize(naive_dt)
+    target_dt = original_dt.astimezone(target_tz)
+    return target_dt.strftime("%H:%M")
+
+
 def _scheduler_main():
     thread: StoppableThread = threading.current_thread()
     plugins_handler = PluginsHandler()
     sched = schedule.Scheduler()
 
     settings = Settings()
+    timezone = settings.get_setting("timezone").strip()
+    container_timezone = _get_timezone()
+
     for lib in Libraries().select().where(Libraries.enable_remote_only == False):
         if settings.get_setting(f"library_{lib.id}_cron_enabled"):
             for time_str in settings.get_setting(f"library_{lib.id}_scan_time").split(","):
@@ -131,9 +154,9 @@ def _scheduler_main():
                 if re.match(r"^\d{1}:\d{2}$", time_str):
                     time_str = "0" + time_str
                 if not re.match(r"^\d{2}:\d{2}$", time_str):
-                    logger.error(f"Invalid time format for library {
-                    lib.name}: '{time_str}'")
+                    logger.error(f"Invalid time format for library {lib.name}: '{time_str}'")
                     continue
+                time_str = _convert_time(time_str, timezone, container_timezone)
                 sched.every().day.at(time_str).do(_start_library_scan, lib.id)
 
     if len(sched.jobs) == 0:
