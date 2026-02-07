@@ -23,6 +23,8 @@ class Settings(PluginSettings):
             "extensions": '',
             "ignored_paths": "",
             "incremental_scan_enabled": True,
+            "reset_old_timestamps": "1%",
+            "check_old_metadata": "10%",
             "quiet_incremental_scan": True,
             "caching_enabled": True,
         }
@@ -37,6 +39,16 @@ class Settings(PluginSettings):
             },
             "incremental_scan_enabled": {
                 "label": "Enable incremental scans (ignore unchanged files)",
+            },
+            "reset_old_timestamps": {
+                "label": f"Percentage of oldest files that will be checked to be pruned and re-tested (e.g. '7' or '0.5%')",
+                'display': 'hidden',
+                "sub_setting": True,
+            },
+            "check_old_metadata": {
+                "label": f"Percentage of oldest metadata entries that will be checked to be pruned (e.g. '7' or '0.5%')",
+                'display': 'hidden',
+                "sub_setting": True,
             },
             "quiet_incremental_scan": {
                 "label": "Don't spam the logs with unchanged files and timestamp updates.",
@@ -93,6 +105,9 @@ class Settings(PluginSettings):
             # FIXME: in staging, settings_configured is not populated at this point and the corresponding method is private
             self._PluginSettings__import_configured_settings()
         if self.settings_configured:
+            if self.settings_configured.get("incremental_scan_enabled"):
+                del form_settings["reset_old_timestamps"]["display"]
+                del form_settings["check_old_metadata"]["display"]
             if self.settings_configured.get("caching_enabled"):
                 for setting, val in form_settings.items():
                     if setting.startswith("cache_"):
@@ -291,8 +306,7 @@ def on_postprocessor_task_results(data: TaskResultData):
                 if incremental_scan_enabled:
                     # TODO: it could be desirable to not add this file to the db and have it checked again
                     if not settings.get_setting("quiet_incremental_scan"):
-                        logger.info(f"Updating timestamp path={
-                        path} library_id={library_id}")
+                        logger.info(f"Updating timestamp path={path} library_id={library_id}")
                     update_timestamp(library_id, path)
 
 
@@ -333,10 +347,6 @@ def _prune_metadata(fraction=1.0):
     logger.info(f"Pruned {num_pruned} metadata items")
 
 
-kmarius_library.lib.prune_timestamps = _prune_timestamps
-kmarius_library.lib.prune_metadata = _prune_metadata
-
-
 def render_frontend_panel(data: PanelData):
     panel.render_frontend_panel(data)
 
@@ -349,7 +359,11 @@ def emit_scan_start(data: dict):
     logger.info(f"emit_scan_start {data}")
 
     library_id = data["library_id"]
-    frac = data.get("frac", 0.0)
+    settings = Settings(library_id=library_id)
+
+    percent = settings.get_setting("reset_old_timestamps")
+    percent = percent.strip().rstrip("%").strip()
+    frac = float(percent) / 100
 
     items = reset_oldest(library_id, frac)
     _prune_timestamps(library_id, frac, set_last_update=False)
@@ -359,5 +373,9 @@ def emit_scan_start(data: dict):
 def emit_scan_complete(data: dict):
     logger.info(f"emit_scan_complete {data}")
 
-    frac = data.get("frac", 0.0)
+    settings = Settings(library_id=data["library_id"])
+    percent = str(settings.get_setting("check_old_metadata"))
+    percent = percent.strip().rstrip("%").strip()
+    frac = float(percent) / 100
+
     _prune_metadata(frac)

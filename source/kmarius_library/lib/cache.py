@@ -150,9 +150,6 @@ def check_oldest(table: str, fraction: float, callback: Callable[[str], bool]) -
         else:
             keep_row_ids.append((int(time.time()), row[1]))
 
-    logger.info(f"delete {delete_row_ids}")
-    logger.info(f"keep {keep_row_ids}")
-
     with conn:
         cur.executemany(f'DELETE FROM {table} WHERE rowid = ?', delete_row_ids)
         cur.executemany(f'UPDATE {table} SET last_update = ? WHERE rowid = ?', keep_row_ids)

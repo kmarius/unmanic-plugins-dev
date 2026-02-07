@@ -57,8 +57,6 @@ class Settings(PluginSettings):
             settings.update({
                 f"library_{lib.id}_cron_enabled": False,
                 f"library_{lib.id}_scan_time": "00:00",
-                f"library_{lib.id}_reset_old": "0",
-                f"library_{lib.id}_check_old_metadata": "0",
             })
         return settings
 
@@ -72,16 +70,6 @@ class Settings(PluginSettings):
                 },
                 f"library_{lib.id}_scan_time": {
                     "label": f"Scan time(s) for library '{lib.name}' (format: hh:mm[,hh:mm]...)",
-                    "sub_setting": True,
-                    "display": "hidden"
-                },
-                f"library_{lib.id}_reset_old": {
-                    "label": f"Percentage of oldest files that will be checked to be pruned and re-tested (e.g. '7' or '0.5%')",
-                    "sub_setting": True,
-                    "display": "hidden"
-                },
-                f"library_{lib.id}_check_old_metadata": {
-                    "label": f"Percentage of oldest metadata entries that will be checked to be pruned (e.g. '7' or '0.5%')",
                     "sub_setting": True,
                     "display": "hidden"
                 },
@@ -105,14 +93,6 @@ class Settings(PluginSettings):
                     if val:
                         scan_time = setting.replace("_cron_enabled", "_scan_time")
                         del form_settings[scan_time]["display"]
-
-                        delete_old = setting.replace("_cron_enabled", "_reset_old")
-                        if _have_kmarius_library():
-                            del form_settings[delete_old]["display"]
-
-                        check_old = setting.replace("_cron_enabled", "_check_old_metadata")
-                        if _have_kmarius_library():
-                            del form_settings[check_old]["display"]
         return form_settings
 
 
@@ -128,20 +108,10 @@ def _get_library_scanner() -> Optional[LibraryScannerManager]:
 
 
 def _start_library_scan(library_id: int):
-    settings = Settings()
-
     scanner = _get_library_scanner()
     if scanner is None:
         logger.error("Could not get library scanner thread")
         return
-
-    # this resets the oldest N entries, and checks for their existence, does not modify last_update
-    reset_old = settings.get_setting(f"library_{library_id}_reset_old").strip()
-    percent = float(reset_old.rstrip("%").strip())
-    _try_exec_runner("kmarius_library", "emit_scan_start", {
-        "library_id": library_id,
-        "frac": percent / 100,
-    })
 
     library = Library(library_id)
     if library.get_enable_remote_only():
@@ -154,15 +124,17 @@ def _start_library_scan(library_id: int):
         library.get_name()}")
         return
 
+    _try_exec_runner("kmarius_library", "emit_scan_start", {
+        "library_id": library_id,
+    })
+
+    # these are somewhat slow because of they are not run in the libraryscanner thread
+    # and there a locking issue or something
     logger.info(f"Starting scheduled scan of library {library.get_name()}")
     scanner.scan_library_path(library.get_path(), library_id)
 
-    # this resets the oldest N entries, and checks for their existence, does not modify last_update
-    check_old = settings.get_setting(f"library_{library_id}_check_old_metadata").strip()
-    percent = float(check_old.rstrip("%").strip())
     _try_exec_runner("kmarius_library", "emit_scan_complete", {
         "library_id": library_id,
-        "frac": percent / 100,
     })
 
 

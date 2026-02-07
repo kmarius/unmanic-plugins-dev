@@ -222,11 +222,8 @@ def check_oldest(library_id: int, fraction: float, callback: Callable[[str], boo
     for row in cur:
         if not callback(row[0]):
             delete_row_ids.append((row[1],))
-        else:
+        elif set_last_update:
             keep_row_ids.append((int(time.time()), row[1]))
-
-    logger.info(f"delete {delete_row_ids}")
-    logger.info(f"keep {keep_row_ids}")
 
     with conn:
         cur.executemany('DELETE FROM timestamps WHERE rowid = ?', delete_row_ids)
