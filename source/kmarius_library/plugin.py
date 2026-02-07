@@ -10,6 +10,7 @@ from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
 from kmarius_library.lib.panel import Panel
 from kmarius_library.lib.plugin_types import *
+from kmarius_library.lib.timestamps import reset_oldest
 
 cache.init([p.name for p in PROVIDERS])
 timestamps.init()
@@ -342,3 +343,21 @@ def render_frontend_panel(data: PanelData):
 
 def render_plugin_api(data: PluginApiData):
     panel.render_plugin_api(data)
+
+
+def emit_scan_start(data: dict):
+    logger.info(f"emit_scan_start {data}")
+
+    library_id = data["library_id"]
+    frac = data.get("frac", 0.0)
+
+    items = reset_oldest(library_id, frac)
+    _prune_timestamps(library_id, frac, set_last_update=False)
+    logger.info(f"reset {items}")
+
+
+def emit_scan_complete(data: dict):
+    logger.info(f"emit_scan_complete {data}")
+
+    frac = data.get("frac", 0.0)
+    _prune_metadata(frac)

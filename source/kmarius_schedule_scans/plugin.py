@@ -2,13 +2,16 @@
 
 import logging
 import re
+import sys
 import threading
+
 import schedule
 from typing import Optional, override
 
 from unmanic.libs.library import Libraries, Library
 from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.plugins import PluginsHandler
+from unmanic.libs.unplugins import PluginExecutor
 from unmanic.libs.unplugins.settings import PluginSettings
 
 PLUGIN_ID = "kmarius_schedule_scans"
@@ -73,12 +76,12 @@ class Settings(PluginSettings):
                     "display": "hidden"
                 },
                 f"library_{lib.id}_reset_old": {
-                    "label": f"Percentage of oldest files that will be re-tested (e.g. '7' or '0.5%')",
+                    "label": f"Percentage of oldest files that will be checked to be pruned and re-tested (e.g. '7' or '0.5%')",
                     "sub_setting": True,
                     "display": "hidden"
                 },
                 f"library_{lib.id}_check_old_metadata": {
-                    "label": f"Percentage of oldest database entries that will be checked to be pruned (e.g. '7' or '0.5%')",
+                    "label": f"Percentage of oldest metadata entries that will be checked to be pruned (e.g. '7' or '0.5%')",
                     "sub_setting": True,
                     "display": "hidden"
                 },
@@ -124,33 +127,6 @@ def _get_library_scanner() -> Optional[LibraryScannerManager]:
     return _get_thread_by_name("LibraryScannerManager")
 
 
-def _reset_old_entries(library_id, setting) -> bool:
-    try:
-        from kmarius_library.lib.timestamps import reset_oldest
-        from kmarius_library.lib import prune_timestamps
-        percent = float(setting.rstrip("%").strip())
-        if percent > 0:
-            items = reset_oldest(library_id, percent / 100)
-            prune_timestamps(library_id, percent / 100, set_last_update=False)
-            logger.info(f"reset {items}")
-    except Exception as e:
-        logger.error(e)
-        return False
-    return True
-
-
-def _check_old_metadata(setting):
-    try:
-        from kmarius_library.lib import prune_metadata
-        percent = float(setting.rstrip("%").strip())
-        if percent > 0:
-            prune_metadata(percent / 100)
-    except Exception as e:
-        logger.error(e)
-        return False
-    return True
-
-
 def _start_library_scan(library_id: int):
     settings = Settings()
 
@@ -159,11 +135,13 @@ def _start_library_scan(library_id: int):
         logger.error("Could not get library scanner thread")
         return
 
-    if _have_kmarius_library():
-        # this resets the oldest N entries, and checks for their existence, oes not modify last_update
-        reset_old = settings.get_setting(f"library_{library_id}_reset_old").strip()
-        if not _reset_old_entries(library_id, reset_old):
-            return
+    # this resets the oldest N entries, and checks for their existence, does not modify last_update
+    reset_old = settings.get_setting(f"library_{library_id}_reset_old").strip()
+    percent = float(reset_old.rstrip("%").strip())
+    _try_exec_runner("kmarius_library", "emit_scan_start", {
+        "library_id": library_id,
+        "frac": percent / 100,
+    })
 
     library = Library(library_id)
     if library.get_enable_remote_only():
@@ -179,9 +157,31 @@ def _start_library_scan(library_id: int):
     logger.info(f"Starting scheduled scan of library {library.get_name()}")
     scanner.scan_library_path(library.get_path(), library_id)
 
-    if _have_kmarius_library():
-        check_old = settings.get_setting(f"library_{library_id}_check_old_metadata").strip()
-        _check_old_metadata(check_old)
+    # this resets the oldest N entries, and checks for their existence, does not modify last_update
+    check_old = settings.get_setting(f"library_{library_id}_check_old_metadata").strip()
+    percent = float(check_old.rstrip("%").strip())
+    _try_exec_runner("kmarius_library", "emit_scan_complete", {
+        "library_id": library_id,
+        "frac": percent / 100,
+    })
+
+
+def _try_exec_runner(plugin_id, plugin_runner, data):
+    executor = PluginExecutor()
+    executor.get_plugin_settings(plugin_id)
+    module_name = f"{plugin_id}.plugin"
+    if module_name not in sys.modules:
+        logger.error(f"{module_name} not in sys.modules")
+        return
+    plugin_module = sys.modules[module_name]
+    if not hasattr(plugin_module, plugin_runner):
+        logger.error(f"{plugin_runner} not found")
+        return
+    runner = getattr(plugin_module, plugin_runner)
+    try:
+        runner(data)
+    except Exception as e:
+        logger.error(e)
 
 
 def _scheduler_main():
