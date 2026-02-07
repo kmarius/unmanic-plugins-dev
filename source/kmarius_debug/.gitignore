@@ -2,4 +2,4 @@
 *.py[cod]
 **/site-packages
 settings.json
-*
+*.zip
