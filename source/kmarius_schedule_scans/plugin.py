@@ -1,8 +1,6 @@
 # TODO: support timezones
 
-import logging
 import re
-import sys
 import threading
 
 import schedule
@@ -11,14 +9,11 @@ from typing import Optional, override
 from unmanic.libs.library import Libraries, Library
 from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.plugins import PluginsHandler
-from unmanic.libs.unplugins import PluginExecutor
 from unmanic.libs.unplugins.settings import PluginSettings
 
-PLUGIN_ID = "kmarius_schedule_scans"
-THREAD_NAME = "kmarius-schedule-scans"
+from kmarius_schedule_scans.lib import logger, PLUGIN_ID
 
-# Configure plugin logger
-logger = logging.getLogger(f"Unmanic.Plugin.{PLUGIN_ID}")
+THREAD_NAME = PLUGIN_ID.replace("_", "-")
 
 
 class StoppableThread(threading.Thread):
@@ -40,15 +35,6 @@ class StoppableThread(threading.Thread):
         return self._stop_event.wait(seconds)
 
 
-def _have_kmarius_library():
-    try:
-        from kmarius_library.lib import PLUGIN_ID
-        return True
-    except ImportError:
-        pass
-    return False
-
-
 class Settings(PluginSettings):
     @staticmethod
     def __build_settings():
@@ -56,7 +42,7 @@ class Settings(PluginSettings):
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             settings.update({
                 f"library_{lib.id}_cron_enabled": False,
-                f"library_{lib.id}_scan_time": "00:00",
+                f"library_{lib.id}_scan_time": "03:00",
             })
         return settings
 
@@ -124,36 +110,10 @@ def _start_library_scan(library_id: int):
         library.get_name()}")
         return
 
-    _try_exec_runner("kmarius_library", "emit_scan_start", {
-        "library_id": library_id,
-    })
-
     # these are somewhat slow because of they are not run in the libraryscanner thread
     # and there a locking issue or something
     logger.info(f"Starting scheduled scan of library {library.get_name()}")
     scanner.scan_library_path(library.get_path(), library_id)
-
-    _try_exec_runner("kmarius_library", "emit_scan_complete", {
-        "library_id": library_id,
-    })
-
-
-def _try_exec_runner(plugin_id, plugin_runner, data):
-    executor = PluginExecutor()
-    executor.get_plugin_settings(plugin_id)
-    module_name = f"{plugin_id}.plugin"
-    if module_name not in sys.modules:
-        logger.error(f"{module_name} not in sys.modules")
-        return
-    plugin_module = sys.modules[module_name]
-    if not hasattr(plugin_module, plugin_runner):
-        logger.error(f"{plugin_runner} not found")
-        return
-    runner = getattr(plugin_module, plugin_runner)
-    try:
-        runner(data)
-    except Exception as e:
-        logger.error(e)
 
 
 def _scheduler_main():
