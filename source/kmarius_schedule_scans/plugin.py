@@ -34,9 +34,14 @@ class StoppableThread(threading.Thread):
         return self._stop_event.wait(seconds)
 
 
-def _get_timezone() -> str:
-    with open("/etc/timezone") as f:
-        return f.read().strip("\n")
+def _get_timezone() -> str|None:
+    try:
+        with open("/etc/timezone") as f:
+            return f.read().strip("\n")
+    except Exception as e:
+        logger.error(f"Could not read /etc/timezone: {e}")
+        return None
+
 
 
 class Settings(PluginSettings):
@@ -156,7 +161,8 @@ def _scheduler_main():
                 if not re.match(r"^\d{2}:\d{2}$", time_str):
                     logger.error(f"Invalid time format for library {lib.name}: '{time_str}'")
                     continue
-                time_str = _convert_time(time_str, timezone, container_timezone)
+                if container_timezone and timezone != "":
+                    time_str = _convert_time(time_str, timezone, container_timezone)
                 sched.every().day.at(time_str).do(_start_library_scan, lib.id)
 
     if len(sched.jobs) == 0:
