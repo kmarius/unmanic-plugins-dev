@@ -1,24 +1,24 @@
 from typing import TypedDict, Callable
 
 
-class PanelData (TypedDict):
+class PanelData(TypedDict):
     content_type: str
     content: str
     path: str
     arguments: dict
 
 
-class PluginApiData (TypedDict):
+class PluginApiData(TypedDict):
     content_type: str
     content: dict
     path: str
     uri: str
     query: str
     arguments: dict
-    body: dict
+    body: bytes
 
 
-class FileTestData (TypedDict):
+class FileTestData(TypedDict):
     library_id: int
     path: str
     issues: list
@@ -27,7 +27,7 @@ class FileTestData (TypedDict):
     shared_info: dict
 
 
-class FileMoveData (TypedDict):
+class FileMoveData(TypedDict):
     library_id: int
     source_data: dict
     remove_source_file: bool
@@ -37,7 +37,7 @@ class FileMoveData (TypedDict):
     run_default_file_copy: bool
 
 
-class TaskResultData (TypedDict):
+class TaskResultData(TypedDict):
     final_cache_path: str
     library_id: int
     task_processing_success: bool
@@ -46,11 +46,11 @@ class TaskResultData (TypedDict):
     source_data: dict
 
 
-class ProcessItemData (TypedDict):
+class ProcessItemData(TypedDict):
     worker_log: list
     library_id: int
     exec_command: list[str]
-    command_progress_parser: Callable[[None], None]
+    command_progress_parser: Callable[[str], dict]
     file_in: str
     file_out: str
     original_file_path: str

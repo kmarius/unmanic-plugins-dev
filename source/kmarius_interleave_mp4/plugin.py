@@ -2,7 +2,7 @@ import os
 
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_interleave_mp4.lib.plugin_types import *
+from kmarius_interleave_mp4.lib.types import *
 from kmarius_interleave_mp4.lib import logger, PLUGIN_ID
 from kmarius_interleave_mp4.lib.mp4box import MP4Box
 

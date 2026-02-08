@@ -3,7 +3,7 @@ import time
 from unmanic.libs.unmodels import Libraries
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_debug.lib.plugin_types import *
+from kmarius_debug.lib.types import *
 from kmarius_debug.lib import logger, PLUGIN_ID
 
 

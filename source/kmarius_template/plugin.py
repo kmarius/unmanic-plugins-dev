@@ -1,6 +1,6 @@
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_template.lib.plugin_types import *
+from kmarius_template.lib.types import *
 from kmarius_template.lib import logger, PLUGIN_ID
 
 

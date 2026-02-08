@@ -3,17 +3,19 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 import types
 import uuid
 from typing import Optional
 
 from unmanic.libs import common
 from unmanic.libs.filetest import FileTest
+from unmanic.libs.foreman import Foreman
 from unmanic.libs.unplugins import PluginExecutor
 from unmanic.libs.unplugins.settings import PluginSettings
 
 from kmarius_hacks.lib import logger, PLUGIN_ID
-from kmarius_hacks.lib.plugin_types import *
+from kmarius_hacks.lib.types import *
 
 AUTOSTART_SCRIPT = os.path.join(common.get_home_dir(), ".unmanic",
                                 "plugins", PLUGIN_ID, "init.d", "autostart.sh")
@@ -114,13 +116,17 @@ def should_file_be_added_to_task_list(self, path):
 
 
 def scan_library_path(self, library_path, library_id):
-    _try_exec_runner("kmarius_library", "emit_scan_start", {
-        "library_id": library_id,
-    })
+    plugin_ids = ["kmarius_hacks", "kmarius_library", ]
+    for plugin_id in plugin_ids:
+        _try_exec_runner(plugin_id, "emit_scan_start", {
+            "library_id": library_id,
+        })
     res = getattr(self, Patch.get_real_name("scan_library_path"))(library_path, library_id)
-    _try_exec_runner("kmarius_library", "emit_scan_complete", {
-        "library_id": library_id,
-    })
+    plugin_ids.reverse()
+    for plugin_id in plugin_ids:
+        _try_exec_runner(plugin_id, "emit_scan_complete", {
+            "library_id": library_id,
+        })
     return res
 
 
@@ -151,9 +157,14 @@ PATCHES = [
 
 class Settings(PluginSettings):
     settings = {
+        "pause_workers_during_scan": False,
         "enable_data_panel": False,
     }
     form_settings = {
+        "pause_workers_during_scan": {
+            "label": "Pause workers during scans.",
+            "description": "Requires emit_scan_start and emit_scan_complete."
+        },
         "enable_data_panel": {
             "label": "Enable data panel with restart button.",
             "description": "Disabling requires a restart."
@@ -177,24 +188,27 @@ settings = Settings()
 for patch in PATCHES:
     patch.patch(settings)
 
+_scans_in_progress = set()
 
-@critical
-def run_init_d_scripts():
-    proc = subprocess.Popen(["/etc/cont-init.d/60-custom-setup-script"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # we read stdout completely before reading stderr, surely the script wouldn't fill up its stderr buffer
-    for line in proc.stdout:
-        line = line.decode("utf-8")
-        if line[-1] == "\n":
-            line = line[:-1]
-        logger.info(line)
-    for line in proc.stderr:
-        line = line.decode("utf-8")
-        if line[-1] == "\n":
-            line = line[:-1]
-        logger.error(line)
 
-    proc.wait()
-    logger.info(f"exit status: {proc.returncode}")
+def _restart_maybe(delay: float):
+    time.sleep(delay)
+    if len(_scans_in_progress) == 0:
+        foreman: Foreman = _get_thread("Foreman")
+        foreman.resume_all_worker_threads()
+
+
+def emit_scan_start(data: dict):
+    if settings.get_setting("pause_workers_during_scan"):
+        foreman: Foreman = _get_thread("Foreman")
+        foreman.pause_all_worker_threads()
+        _scans_in_progress.add(data["library_id"])
+
+
+def emit_scan_complete(data: dict):
+    if settings.get_setting("pause_workers_during_scan"):
+        _scans_in_progress.remove(data["library_id"])
+        threading.Thread(target=_restart_maybe, args=(4,), daemon=True).start()
 
 
 def render_plugin_api(data: PluginApiData):
@@ -210,9 +224,7 @@ def render_plugin_api(data: PluginApiData):
             # the autostart script is only called on container start, so we do it now
             # TODO: do we need a higher delay or a mechanism to make sure unmanic has quit
             # and doesn't respond to the startup script before it shuts down?
-            subprocess.call(['/usr/bin/sh', AUTOSTART_SCRIPT, "1"])
-        case "/init":
-            threading.Thread(target=run_init_d_scripts, daemon=True).start()
+            subprocess.call(['/usr/bin/sh', AUTOSTART_SCRIPT, "1"], start_new_session=True)
         case path:
             logger.error(f"Unrecognized patch: {path}")
 

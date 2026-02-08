@@ -12,7 +12,7 @@ from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.unmodels import Libraries
 
 from . import timestamps, logger
-from .plugin_types import *
+from .types import *
 
 
 def critical(f):

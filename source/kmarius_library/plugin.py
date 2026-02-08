@@ -8,7 +8,7 @@ from unmanic.libs.unplugins.settings import PluginSettings
 from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
 from kmarius_library.lib.panel import Panel
-from kmarius_library.lib.plugin_types import *
+from kmarius_library.lib.types import *
 from kmarius_library.lib.timestamps import reset_oldest
 
 cache.init([p.name for p in PROVIDERS])
