@@ -22,7 +22,8 @@ class Settings(PluginSettings):
             "extensions": '',
             "ignored_paths": "",
             "incremental_scan_enabled": True,
-            "reset_old_timestamps": "1%",
+            "check_old_timestamps": "1%",
+            "reset_old_timestamps": True,
             "check_old_metadata": "5%",
             "quiet_incremental_scan": True,
             "caching_enabled": True,
@@ -39,8 +40,13 @@ class Settings(PluginSettings):
             "incremental_scan_enabled": {
                 "label": "Enable incremental scans (ignore unchanged files)",
             },
+            "check_old_timestamps": {
+                "label": f"Percentage of oldest files that will be checked to be pruned (e.g. '7' or '0.5%')",
+                'display': 'hidden',
+                "sub_setting": True,
+            },
             "reset_old_timestamps": {
-                "label": f"Percentage of oldest files that will be checked to be pruned and re-tested (e.g. '7' or '0.5%')",
+                "label": f"Reset timestamps of existing old files for re-testing.",
                 'display': 'hidden',
                 "sub_setting": True,
             },
@@ -105,6 +111,7 @@ class Settings(PluginSettings):
             self._PluginSettings__import_configured_settings()
         if self.settings_configured:
             if self.settings_configured.get("incremental_scan_enabled"):
+                del form_settings["check_old_timestamps"]["display"]
                 del form_settings["reset_old_timestamps"]["display"]
                 del form_settings["check_old_metadata"]["display"]
             if self.settings_configured.get("caching_enabled"):
@@ -355,13 +362,18 @@ def emit_scan_start(data: dict):
     library_id = data["library_id"]
     settings = Settings(library_id=library_id)
 
-    percent = settings.get_setting("reset_old_timestamps")
+    reset_old_timestamps = settings.get_setting("reset_old_timestamps")
+    percent = settings.get_setting("check_old_timestamps")
     percent = percent.strip().rstrip("%").strip()
     frac = float(percent) / 100
 
-    items = reset_oldest(library_id, frac)
-    _prune_timestamps(library_id, frac, set_last_update=False)
-    logger.info(f"reset {items}")
+    if reset_old_timestamps:
+        items = reset_oldest(library_id, frac)
+        logger.info(f"reset {items}")
+
+    # when not resetting timestamps we must set last_update, otherwise we check the same old elements over and over
+    set_last_update = not reset_old_timestamps
+    _prune_timestamps(library_id, frac, set_last_update=set_last_update)
 
 
 def emit_scan_complete(data: dict):
