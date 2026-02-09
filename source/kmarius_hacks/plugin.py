@@ -216,8 +216,8 @@ def render_plugin_api(data: PluginApiData):
         case "/":
             # we call this plugin's endpoint after startup to force loading of all plugins
             pass
-        case "/restart":
-            # restarts inside a docker container, otherwise quits unmanic
+        case "/stop_unmanic":
+            # supervisor will restart unmanic
             logger.info(f"Restart request received, sending SIGINT")
             os.kill(os.getpid(), signal.SIGINT)
 
@@ -225,6 +225,11 @@ def render_plugin_api(data: PluginApiData):
             # TODO: do we need a higher delay or a mechanism to make sure unmanic has quit
             # and doesn't respond to the startup script before it shuts down?
             subprocess.call(['/usr/bin/sh', AUTOSTART_SCRIPT, "1"], start_new_session=True)
+        case "/stop_supervisor":
+            subprocess.run(
+                ["/command/s6-svscanctl", "-t", "/run/service"],
+                check=True
+            )
         case path:
             logger.error(f"Unrecognized patch: {path}")
 

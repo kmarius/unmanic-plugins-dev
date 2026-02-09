@@ -17,16 +17,16 @@
     <script>
         const PLUGIN_ID = "kmarius_library";
 
-        function showRestartAlert() {
-            document.getElementById("restart-alert").style.display = "block";
+        function showAlert(id) {
+            document.getElementById(id).style.display = "block";
         }
 
-        function clearRestartAlert() {
-            document.getElementById("restart-alert").style.display = "none";
+        function clearAlert(id) {
+            document.getElementById(id).style.display = "none";
         }
 
-        function setRestartAlertText(text) {
-            document.getElementById("restart-alert").textContent = text;
+        function setAlertText(id, text) {
+            document.getElementById(id).textContent = text;
         }
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -34,18 +34,18 @@
             let timer_id = undefined;
 
             document
-                .querySelector("#restart-unmanic")
+                .querySelector("#stop-unmanic")
                 .addEventListener("click", async _ => {
-                    await fetch("/unmanic/plugin_api/kmarius_hacks/restart", {
+                    await fetch("/unmanic/plugin_api/kmarius_hacks/stop_unmanic", {
                         method: 'POST'
                     });
 
-                    showRestartAlert();
+                    showAlert("stop-unmanic-alert");
 
                     if (timer_id === undefined) {
                         let seconds = 0;
                         timer_id = setInterval(async function () {
-                            setRestartAlertText(`Waiting for unmanic to restart... (${++seconds} seconds passed)`);
+                            setAlertText("stop-unmanic-alert", `Waiting for unmanic to restart... (${++seconds} seconds passed)`);
 
                             try {
                                 let response = await fetch("/unmanic/plugin_api/kmarius_hacks", {
@@ -54,7 +54,36 @@
                                 if (response.ok) {
                                     clearInterval(timer_id);
                                     timer_id = undefined;
-                                    clearRestartAlert();
+                                    clearAlert("stop-unmanic-alert");
+                                }
+                            } catch (e) {
+                            }
+                        }, 1000);
+                    }
+                });
+
+            document
+                .querySelector("#stop-supervisor")
+                .addEventListener("click", async _ => {
+                    await fetch("/unmanic/plugin_api/kmarius_hacks/stop_supervisor", {
+                        method: 'POST'
+                    });
+
+                    showAlert("stop-supervisor-alert");
+
+                    if (timer_id === undefined) {
+                        let seconds = 0;
+                        timer_id = setInterval(async function () {
+                            setAlertText("stop-supervisor-alert", `Waiting for unmanic to restart... (${++seconds} seconds passed)`);
+
+                            try {
+                                let response = await fetch("/unmanic/plugin_api/kmarius_hacks", {
+                                    method: 'GET'
+                                });
+                                if (response.ok) {
+                                    clearInterval(timer_id);
+                                    timer_id = undefined;
+                                    clearAlert("stop-supervisor-alert");
                                 }
                             } catch (e) {
                             }
@@ -67,13 +96,24 @@
 
 <div style="display:flex; flex-direction: row; justify-content: left; align-items: center; margin-bottom: 0.5em;">
     <button
-            id="restart-unmanic"
-            title="Restart Unmanic"
-            style="width:100px;margin-right: 10px;"
+            id="stop-unmanic"
+            title="Stop Unmanic, the supervisor will restart it"
+            style="width:160px;margin-right: 10px;"
     >
-        Restart
+        Stop Unmanic
     </button>
-    <span class="alert-text" id="restart-alert" style="display:none">Waiting for unmanic to restart...</span>
+    <span class="alert-text" id="stop-unmanic-alert" style="display:none">Waiting for unmanic to restart...</span>
+</div>
+
+<div style="display:flex; flex-direction: row; justify-content: left; align-items: center; margin-bottom: 0.5em;">
+    <button
+            id="stop-supervisor"
+            title="Stop Supervisor, docker will restart it (if configured correctly)"
+            style="width:160px;margin-right: 10px;"
+    >
+        Stop Supervisor
+    </button>
+    <span class="alert-text" id="stop-supervisor-alert" style="display:none">Waiting for unmanic to restart...</span>
 </div>
 
 </html>
