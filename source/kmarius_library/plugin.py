@@ -258,7 +258,7 @@ def on_library_management_file_test(data: FileTestData):
             if not settings.get_setting("quiet_incremental_scan"):
                 data["issues"].append({
                     'id': PLUGIN_ID,
-                    'message': f"unchanged: {path}, library_id={library_id}"
+                    'message': f"unchanged: library_id={library_id} path={path}"
                 })
             data['add_file_to_pending_tasks'] = False
             return
@@ -307,7 +307,7 @@ def on_postprocessor_task_results(data: TaskResultData):
                     update_cached_metadata(enabled_providers, path)
                 if incremental_scan_enabled:
                     # TODO: it could be desirable to not add this file to the db and have it checked again
-                    logger.info(f"Updating timestamp path={path} library_id={library_id}")
+                    logger.info(f"Updating timestamp library_id={library_id} path={path}")
                     update_timestamp(library_id, path)
 
 
