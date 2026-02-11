@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 
-from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib import init_task_data
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_faststart_handler")
 
@@ -22,10 +22,10 @@ def is_moov_at_front(path: str) -> bool:
 
 
 def on_library_management_file_test(data: dict):
-    mydata = lazy_init(data, logger)
+    task_data = init_task_data(data)
     path = data.get("path")
 
-    if mydata.get("add_file_to_pending_tasks", False):
+    if task_data.get("add_file_to_pending_tasks", False):
         # we only need to test if no other ffmpeg commands run, because we always move the moov atom
         return
 
@@ -42,8 +42,8 @@ def on_library_management_file_test(data: dict):
                     'id': "kmarius_faststart_handler",
                     'message': f"MOOV atom not at front (via mp4box): {path}",
                 })
-                mydata["moov_to_front"] = True
-                mydata["add_file_to_pending_tasks"] = True
+                task_data["moov_to_front"] = True
+                task_data["add_file_to_pending_tasks"] = True
             return
 
     if not is_moov_at_front(path):
@@ -51,5 +51,5 @@ def on_library_management_file_test(data: dict):
             'id': "kmarius_faststart_handler",
             'message': f"MOOV atom not at front: {path}",
         })
-        mydata["moov_to_front"] = True
-        mydata["add_file_to_pending_tasks"] = True
+        task_data["moov_to_front"] = True
+        task_data["add_file_to_pending_tasks"] = True

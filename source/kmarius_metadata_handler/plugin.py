@@ -1,37 +1,30 @@
 import json
 import logging
 import subprocess
-import shutil
 
-from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib import init_task_data
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_metadata_handler")
 
 
 def on_library_management_file_test(data: dict):
-    mydata = lazy_init(data, logger)
-    probe = mydata["probe"]
-    path = data.get("path")
+    shared_info = data["shared_info"]
+    task_data = init_task_data(data)
+    ffprobe = shared_info["ffprobe"]
+    mediainfo = shared_info.get("mediainfo")
 
-    # check fail itself for metadata
-    tags = probe.get("format", {}).get("tags", {})
+    path = data["path"]
+
+    # check file itself for metadata
+    tags = ffprobe.get("format", {}).get("tags", {})
     if "title" in tags or "comment" in tags:
-        mydata["has_metadata"] = True
-        mydata["add_file_to_pending_tasks"] = True
-
-    mediainfo = data["shared_info"].get("mediainfo", None)
+        task_data["has_metadata"] = True
 
     if mediainfo is None:
-        if shutil.which('mediainfo') is None:
-            raise Exception("Unable to find executable 'mediainfo'")
-
-        logger.info(f"no cached mediainfo, retrieving form file: {path}")
-
         command = ["mediainfo", "--output=JSON", path]
         pipe = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, err = pipe.communicate()
-
         mediainfo = json.loads(out.decode("utf-8"))
 
     has_track_metadata = False
@@ -42,12 +35,11 @@ def on_library_management_file_test(data: dict):
             break
 
     if has_track_metadata:
-        mydata["add_file_to_pending_tasks"] = True
-        mydata["has_metadata"] = True
+        task_data["has_metadata"] = True
 
         # check all streams for metadata
         streams = {}
-        for stream_info in probe.get('streams'):
+        for stream_info in ffprobe.get('streams'):
             stream_type = stream_info.get('codec_type', '').lower()
             if not stream_type in streams:
                 streams[stream_type] = []
@@ -61,7 +53,7 @@ def on_library_management_file_test(data: dict):
             'attachment': 'a',
         }
 
-        mappings = mydata["mappings"]
+        mappings = task_data["mappings"]
         for stream_type in streams.keys():
             if not stream_type in mappings:
                 mappings[stream_type] = {}
@@ -94,7 +86,8 @@ def on_library_management_file_test(data: dict):
                         ],
                     }
 
-    if mydata.get("has_metadata", False):
+    if task_data.get("has_metadata", False):
+        task_data["add_file_to_pending_tasks"] = True
         data["issues"].append({
             "id": "kmarius_metadata_handler",
             "message": f"metadata found: {path}"

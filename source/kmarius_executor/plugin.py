@@ -1,12 +1,10 @@
-import logging
 import os
 
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib import logger, init_task_data, put_task_data, get_task_data, clear_task_data
 from kmarius_executor.lib.ffmpeg import StreamMapper, Parser
-
-logger = logging.getLogger("Unmanic.Plugin.kmarius_executor")
+from kmarius_executor.lib.types import *
 
 
 class Settings(PluginSettings):
@@ -22,10 +20,6 @@ class Settings(PluginSettings):
 
     def __init__(self, *args, **kwargs):
         super(Settings, self).__init__(*args, **kwargs)
-
-
-# we use this to pass data from the tester to the processor
-kmarius_data = {}
 
 
 class PluginStreamMapper(StreamMapper):
@@ -53,43 +47,42 @@ class PluginStreamMapper(StreamMapper):
         return self.mappings[stream_type][stream_id]
 
 
-def on_library_management_file_test(data: dict):
-    mydata = lazy_init(data, logger)
+def on_library_management_file_test(data: FileTestData):
+    task_data = init_task_data(data)
+    library_id = data.get("library_id")
     path = data.get("path")
 
-    if mydata["add_file_to_pending_tasks"]:
+    if task_data["add_file_to_pending_tasks"]:
         data['add_file_to_pending_tasks'] = True
-        # pass data to the processor via global variable
-        # TODO: do something more robust, this variable gets wiped on plugin reload
-        global kmarius_data
-        kmarius_data[path] = mydata
+        put_task_data(library_id, path, task_data)
+    else:
+        # there might be leftover data, e.g. if a task is removed from the processing queue
+        clear_task_data(library_id, path)
 
 
-def on_worker_process(data: dict):
-    settings = Settings(library_id=data.get("library_id"))
+def on_worker_process(data: ProcessItemData):
+    library_id = data["library_id"]
+    path = data["original_file_path"]
+
+    settings = Settings(library_id=library_id)
     apply_faststart = settings.get_setting("apply_faststart")
 
-    path = data.get("original_file_path")
-    if not path in kmarius_data:
+    task_data = get_task_data(library_id, path, delete=True)
+    if task_data is None:
         # an unrelated plugin requested processing
         data["exec_command"] = []
         return
 
-    mydata = kmarius_data[path]
-    del kmarius_data[path]
+    file_in = data.get('file_in')
+    ffprobe = task_data.get("ffprobe")
 
-    probe = mydata.get("probe")
-    path = data.get('file_in')
+    mapper = PluginStreamMapper(task_data["mappings"])
+    mapper.set_default_values(None, file_in, ffprobe)
 
-    mapper = PluginStreamMapper(mydata.get("mappings", {}))
-    mapper.set_default_values(None, path, probe)
+    needs_remux = task_data.get("needs_remux", False)
+    needs_faststart = task_data.get("moov_to_front", False)
 
-    needs_remux = mydata.get("needs_remux", False)
-    needs_moov = mydata.get("moov_to_front", False)
-
-    if mapper.streams_need_processing() or needs_remux or (needs_moov and apply_faststart):
-        mapper.set_input_file(path)
-
+    if mapper.streams_need_processing() or needs_remux or (needs_faststart and apply_faststart):
         file_out = data.get('file_out')
 
         if needs_remux:
@@ -97,6 +90,7 @@ def on_worker_process(data: dict):
             file_out = f"{stem}.mp4"
             data['file_out'] = file_out
 
+        mapper.set_input_file(file_in)
         mapper.set_output_file(file_out)
 
         #  "-map", "-0:t", used in old script but fails here
@@ -111,5 +105,5 @@ def on_worker_process(data: dict):
         data['exec_command'] += ffmpeg_args
 
         parser = Parser(logger)
-        parser.set_probe(probe)
+        parser.set_probe(ffprobe)
         data['command_progress_parser'] = parser.parse_progress

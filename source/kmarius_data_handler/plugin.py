@@ -1,14 +1,14 @@
 import logging
 
-from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib import init_task_data
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_data_handler")
 
 
 def on_library_management_file_test(data: dict):
-    mydata = lazy_init(data, logger)
+    task_data = init_task_data(data)
 
-    data_streams = mydata["streams"]["data"]
+    data_streams = task_data["streams"]["data"]
     data_mappings = {}
 
     # remove all streams
@@ -18,6 +18,6 @@ def on_library_management_file_test(data: dict):
             'stream_encoding': [],
         }
 
-    mydata["mappings"]["data"] = data_mappings
+    task_data["mappings"]["data"] = data_mappings
     if len(data_mappings) > 0:
-        mydata["add_file_to_pending_tasks"] = True
+        task_data["add_file_to_pending_tasks"] = True

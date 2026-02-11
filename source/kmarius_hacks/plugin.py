@@ -87,9 +87,9 @@ class Patch:
         return f"_original_{name}"
 
 
-def _try_exec_runner(plugin_id, plugin_runner, data):
+def _try_exec_runner(plugin_id: str, plugin_runner: str, data: dict):
     executor = PluginExecutor()
-    executor.get_plugin_settings(plugin_id)
+    executor.get_plugin_settings(plugin_id)  # loads the plugin if it wasn't already
     module_name = f"{plugin_id}.plugin"
     if module_name not in sys.modules:
         logger.error(f"{module_name} not in sys.modules")

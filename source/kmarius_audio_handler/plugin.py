@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib import init_task_data
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_audio_handler")
 
@@ -47,11 +47,11 @@ def audio_stream_mapping(stream_info: dict, idx: int) -> Optional[dict]:
 
 
 def on_library_management_file_test(data: dict):
-    mydata = lazy_init(data, logger)
+    task_data = init_task_data(data)
 
     # TODO: add functionality for foreign language films
 
-    audio_streams = mydata["streams"]["audio"]
+    audio_streams = task_data["streams"]["audio"]
     audio_mappings = {}
 
     # try to find an english language stream
@@ -69,6 +69,6 @@ def on_library_management_file_test(data: dict):
         if mapping:
             audio_mappings[idx] = mapping
 
-    mydata["mappings"]["audio"] = audio_mappings
+    task_data["mappings"]["audio"] = audio_mappings
     if len(audio_mappings) > 0:
-        mydata["add_file_to_pending_tasks"] = True
+        task_data["add_file_to_pending_tasks"] = True

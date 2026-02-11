@@ -4,7 +4,7 @@ import os
 
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib import init_task_data
 from kmarius_executor.lib.ffmpeg import StreamMapper, Parser, Probe
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_subtitle_handler")
@@ -122,9 +122,9 @@ class PluginStreamMapper(StreamMapper):
 
 
 def on_library_management_file_test(data: dict):
-    mydata = lazy_init(data, logger)
+    task_data = init_task_data(data)
 
-    subtitle_streams = mydata["streams"]["subtitle"]
+    subtitle_streams = task_data["streams"]["subtitle"]
     subtitle_mappings = {}
 
     # remove all streams
@@ -134,9 +134,9 @@ def on_library_management_file_test(data: dict):
             'stream_encoding': [],
         }
 
-    mydata["mappings"]["subtitle"] = subtitle_mappings
+    task_data["mappings"]["subtitle"] = subtitle_mappings
     if len(subtitle_mappings) > 0:
-        mydata["add_file_to_pending_tasks"] = True
+        task_data["add_file_to_pending_tasks"] = True
 
 
 def on_worker_process(data: dict):

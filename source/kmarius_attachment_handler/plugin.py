@@ -1,14 +1,14 @@
 import logging
 
-from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib import init_task_data
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_attachment_handler")
 
 
 def on_library_management_file_test(data: dict):
-    mydata = lazy_init(data, logger)
+    task_data = init_task_data(data)
 
-    attachment_streams = mydata["streams"]["attachment"]
+    attachment_streams = task_data["streams"]["attachment"]
     attachment_mappings = {}
 
     # remove all streams
@@ -18,7 +18,7 @@ def on_library_management_file_test(data: dict):
             'stream_encoding': [],
         }
 
-    mydata["mappings"]["attachment"] = attachment_mappings
+    task_data["mappings"]["attachment"] = attachment_mappings
 
     if len(attachment_mappings) > 0:
-        mydata["add_file_to_pending_tasks"] = True
+        task_data["add_file_to_pending_tasks"] = True

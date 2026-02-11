@@ -5,7 +5,7 @@ from typing import Optional
 
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_executor.lib import lazy_init
+from kmarius_executor.lib import init_task_data
 
 logger = logging.getLogger("Unmanic.Plugin.kmarius_video_handler")
 
@@ -89,21 +89,21 @@ def video_stream_mapping(
 
 
 def on_library_management_file_test(data: dict):
-    mydata = lazy_init(data, logger)
+    task_data = init_task_data(data)
 
     settings = Settings(library_id=data.get('library_id'))
     target_bitrate = settings.get_setting('target_bitrate') * 1000
     bitrate_cutoff = settings.get_setting('bitrate_cutoff') * 1000
 
-    video_streams = mydata["streams"]["video"]
+    video_streams = task_data["streams"]["video"]
     video_mappings = {}
 
+    path = data['path']
     for idx, stream_info in enumerate(video_streams):
-        mapping = video_stream_mapping(stream_info, idx, data.get(
-            'path'), target_bitrate, bitrate_cutoff)
+        mapping = video_stream_mapping(stream_info, idx, path, target_bitrate, bitrate_cutoff)
         if mapping:
             video_mappings[idx] = mapping
 
-    mydata["mappings"]["video"] = video_mappings
+    task_data["mappings"]["video"] = video_mappings
     if len(video_mappings) > 0:
-        mydata["add_file_to_pending_tasks"] = True
+        task_data["add_file_to_pending_tasks"] = True
