@@ -1,6 +1,7 @@
 import logging
 
 from kmarius_executor.lib.ffmpeg import Probe
+from kmarius_executor.lib.types import FileTestData
 
 PLUGIN_ID = "kmarius_executor"
 
@@ -27,7 +28,7 @@ def streams_from_probe(probe_info: dict) -> dict:
     return streams
 
 
-def init_task_data(data: dict) -> dict:
+def init_task_data(data: FileTestData) -> dict:
     shared_info = data["shared_info"]
     if "task_data" not in shared_info:
         shared_info["task_data"] = {

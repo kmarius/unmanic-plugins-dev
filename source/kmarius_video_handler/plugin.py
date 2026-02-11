@@ -1,4 +1,3 @@
-import logging
 import subprocess
 import re
 from typing import Optional
@@ -6,8 +5,8 @@ from typing import Optional
 from unmanic.libs.unplugins.settings import PluginSettings
 
 from kmarius_executor.lib import init_task_data
-
-logger = logging.getLogger("Unmanic.Plugin.kmarius_video_handler")
+from kmarius_video_handler.lib import logger
+from kmarius_video_handler.lib.types import *
 
 
 class Settings(PluginSettings):
@@ -88,7 +87,7 @@ def video_stream_mapping(
     return None
 
 
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     task_data = init_task_data(data)
 
     settings = Settings(library_id=data.get('library_id'))

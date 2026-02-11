@@ -34,14 +34,13 @@ class StoppableThread(threading.Thread):
         return self._stop_event.wait(seconds)
 
 
-def _get_timezone() -> str|None:
+def _get_timezone() -> str | None:
     try:
         with open("/etc/timezone") as f:
             return f.read().strip("\n")
     except Exception as e:
         logger.error(f"Could not read /etc/timezone: {e}")
         return None
-
 
 
 class Settings(PluginSettings):

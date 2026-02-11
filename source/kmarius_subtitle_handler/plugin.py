@@ -1,4 +1,3 @@
-import logging
 import re
 import os
 
@@ -7,7 +6,8 @@ from unmanic.libs.unplugins.settings import PluginSettings
 from kmarius_executor.lib import init_task_data
 from kmarius_executor.lib.ffmpeg import StreamMapper, Parser, Probe
 
-logger = logging.getLogger("Unmanic.Plugin.kmarius_subtitle_handler")
+from kmarius_subtitle_handler.lib.types import *
+from kmarius_subtitle_handler.lib import logger
 
 
 class Settings(PluginSettings):
@@ -121,7 +121,7 @@ class PluginStreamMapper(StreamMapper):
         return args
 
 
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     task_data = init_task_data(data)
 
     subtitle_streams = task_data["streams"]["subtitle"]
@@ -139,7 +139,7 @@ def on_library_management_file_test(data: dict):
         task_data["add_file_to_pending_tasks"] = True
 
 
-def on_worker_process(data: dict):
+def on_worker_process(data: ProcessItemData):
     settings = Settings(library_id=data.get('library_id'))
 
     # Default to no FFMPEG command required. This prevents the FFMPEG command from running if it is not required

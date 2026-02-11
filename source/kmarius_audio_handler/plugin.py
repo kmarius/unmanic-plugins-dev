@@ -1,9 +1,8 @@
-import logging
 from typing import Optional
 
+from kmarius_audio_handler.lib import logger
+from kmarius_audio_handler.lib.types import FileTestData
 from kmarius_executor.lib import init_task_data
-
-logger = logging.getLogger("Unmanic.Plugin.kmarius_audio_handler")
 
 
 def check_stream_lang(stream_info: dict, lang: str) -> bool:
@@ -46,7 +45,7 @@ def audio_stream_mapping(stream_info: dict, idx: int) -> Optional[dict]:
     return None
 
 
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     task_data = init_task_data(data)
 
     # TODO: add functionality for foreign language films

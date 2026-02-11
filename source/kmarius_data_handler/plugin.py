@@ -1,11 +1,8 @@
-import logging
-
 from kmarius_executor.lib import init_task_data
+from kmarius_metadata_handler.lib.types import FileTestData
 
-logger = logging.getLogger("Unmanic.Plugin.kmarius_data_handler")
 
-
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     task_data = init_task_data(data)
 
     data_streams = task_data["streams"]["data"]

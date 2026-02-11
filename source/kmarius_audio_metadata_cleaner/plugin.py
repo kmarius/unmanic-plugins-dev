@@ -6,7 +6,8 @@ from mutagen.mp3 import MP3
 from mutagen.mp4 import MP4
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_audio_metadata_cleaner.lib import logger, PLUGIN_ID
+from kmarius_audio_metadata_cleaner.lib import PLUGIN_ID
+from kmarius_audio_metadata_cleaner.lib.types import FileTestData, ProcessItemData
 
 
 class Settings(PluginSettings):
@@ -53,7 +54,7 @@ def get_settings_object(library_id: int) -> Settings:
     return _library_settings[library_id]
 
 
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     settings = get_settings_object(data.get('library_id'))
 
     path = data.get("path")
@@ -100,7 +101,7 @@ def on_library_management_file_test(data: dict):
                 break
 
 
-def on_worker_process(data: dict):
+def on_worker_process(data: ProcessItemData):
     settings = get_settings_object(data.get('library_id'))
 
     path = data.get("file_in")

@@ -1,11 +1,8 @@
-import logging
-
+from kmarius_attachment_handler.lib.types import FileTestData
 from kmarius_executor.lib import init_task_data
 
-logger = logging.getLogger("Unmanic.Plugin.kmarius_attachment_handler")
 
-
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     task_data = init_task_data(data)
 
     attachment_streams = task_data["streams"]["attachment"]

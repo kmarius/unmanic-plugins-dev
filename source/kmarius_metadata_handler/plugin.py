@@ -1,13 +1,11 @@
 import json
-import logging
 import subprocess
 
 from kmarius_executor.lib import init_task_data
+from kmarius_metadata_handler.lib.types import FileTestData
 
-logger = logging.getLogger("Unmanic.Plugin.kmarius_metadata_handler")
 
-
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     shared_info = data["shared_info"]
     task_data = init_task_data(data)
     ffprobe = shared_info["ffprobe"]

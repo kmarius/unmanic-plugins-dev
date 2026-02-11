@@ -1,12 +1,10 @@
-import logging
 import os
 
+from kmarius_container_handler.lib.types import FileTestData
 from kmarius_executor.lib import init_task_data
 
-logger = logging.getLogger("Unmanic.Plugin.kmarius_container_handler")
 
-
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     task_data = init_task_data(data)
 
     ext = os.path.splitext(data.get("path"))[1][1:].lower()

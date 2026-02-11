@@ -1,11 +1,10 @@
-import logging
 import os
 
 from unmanic.libs.unplugins.settings import PluginSettings
 
 from kmarius_flac_downsampler.lib.ffmpeg import Probe
-
-logger = logging.getLogger("Unmanic.Plugin.kmarius_flac_downsampler")
+from kmarius_flac_downsampler.lib import logger
+from kmarius_flac_downsampler.lib.types import FileTestData, ProcessItemData
 
 
 class Settings(PluginSettings):
@@ -30,13 +29,12 @@ class Settings(PluginSettings):
     }
 
 
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     settings = Settings(library_id=data.get('library_id'))
     thresh = settings.get_setting('sample_rate_threshold')
 
     path = data.get("path")
-    _, ext = os.path.splitext(path)
-    ext = ext.lower().lstrip(".")
+    ext = os.path.splitext(path)[1][1:].lower()
     if ext != "flac":
         return
 
@@ -57,15 +55,14 @@ def on_library_management_file_test(data: dict):
                 })
 
 
-def on_worker_process(data: dict):
+def on_worker_process(data: ProcessItemData):
     settings = Settings(library_id=data.get('library_id'))
     thresh = settings.get_setting('sample_rate_threshold')
     sample_rate = settings.get_setting('target_sample_rate')
     sample_fmt = settings.get_setting('target_sample_fmt')
 
     path = data.get("file_in")
-    _, ext = os.path.splitext(path)
-    ext = ext.lower().lstrip(".")
+    ext = os.path.splitext(path)[1][1:].lower()
     if ext != "flac":
         return
 

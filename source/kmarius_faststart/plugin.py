@@ -1,10 +1,8 @@
-import logging
 import os
 import subprocess
 
 from kmarius_executor.lib import init_task_data
-
-logger = logging.getLogger("Unmanic.Plugin.kmarius_faststart_handler")
+from kmarius_faststart.lib.types import FileTestData
 
 
 def is_moov_at_front(path: str) -> bool:
@@ -21,7 +19,7 @@ def is_moov_at_front(path: str) -> bool:
     return False
 
 
-def on_library_management_file_test(data: dict):
+def on_library_management_file_test(data: FileTestData):
     task_data = init_task_data(data)
     path = data.get("path")
 
