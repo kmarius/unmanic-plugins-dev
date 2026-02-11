@@ -18,23 +18,7 @@ from kmarius_hacks.lib import logger, PLUGIN_ID
 from kmarius_hacks.lib.types import *
 
 AUTOSTART_SCRIPT = os.path.join(common.get_home_dir(), ".unmanic",
-                                "plugins", PLUGIN_ID, "init.d", "autostart.sh")
-
-
-def critical(f):
-    """Decorator to allow only one thread to execute this function at a time."""
-    lock = threading.Lock()
-
-    def wrapped(*args, **kwargs):
-        if not lock.acquire(blocking=False):
-            logger.info("Could not acquire lock")
-            return
-        try:
-            f(*args, **kwargs)
-        finally:
-            lock.release()
-
-    return wrapped
+                                "plugins", PLUGIN_ID, "init.d", "load-plugins.sh")
 
 
 def _get_thread(name: str) -> Optional[threading.Thread]:
@@ -158,16 +142,11 @@ PATCHES = [
 class Settings(PluginSettings):
     settings = {
         "pause_workers_during_scan": False,
-        "enable_data_panel": False,
     }
     form_settings = {
         "pause_workers_during_scan": {
             "label": "Pause workers during scans.",
             "description": "Requires emit_scan_start and emit_scan_complete."
-        },
-        "enable_data_panel": {
-            "label": "Enable data panel with restart button.",
-            "description": "Disabling requires a restart."
         },
     }
 
@@ -237,10 +216,9 @@ def render_plugin_api(data: PluginApiData):
     data["content"] = {}
 
 
-if settings.get_setting("enable_data_panel"):
-    def render_frontend_panel(data: PanelData):
-        data["content_type"] = "text/html"
+def render_frontend_panel(data: PanelData):
+    data["content_type"] = "text/html"
 
-        with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:
-            content = file.read()
-            data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
+    with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:
+        content = file.read()
+        data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))

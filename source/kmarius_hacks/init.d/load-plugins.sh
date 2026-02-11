@@ -1,7 +1,8 @@
 #!/bin/sh
-delay=${1:-0}
+#
+# Force Unmanic to load all plugins after startup by calling a plugin API endpoint.
 
-chmod u+s /command/s6-svscanctl
+delay=${1:-0}
 
 (
 sleep "$delay"
