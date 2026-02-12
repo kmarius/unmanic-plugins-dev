@@ -6,11 +6,12 @@ import threading
 import time
 import types
 import uuid
-from typing import Optional
+from typing import Optional, cast
 
 from unmanic.libs import common
 from unmanic.libs.filetest import FileTest
 from unmanic.libs.foreman import Foreman
+from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.unplugins import PluginExecutor
 from unmanic.libs.unplugins.settings import PluginSettings
 
@@ -26,6 +27,14 @@ def _get_thread(name: str) -> Optional[threading.Thread]:
         if thread.name == name:
             return thread
     return None
+
+
+# sometimes we are executed too early, but our patch works with either the class or the instances
+def _get_thread_or_class(clazz: type):
+    for thread in threading.enumerate():
+        if type(thread) == clazz:
+            return thread
+    return clazz
 
 
 class Patch:
@@ -130,7 +139,7 @@ PATCHES = [
         "This setting only affects newly spawned file tester threads.",
     ),
     Patch(
-        _get_thread("LibraryScannerManager"),
+        _get_thread_or_class(LibraryScannerManager),
         "scan_library_path",
         scan_library_path,
         "Enable emit_scan_start and emit_scan_complete.",
@@ -173,13 +182,13 @@ _scans_in_progress = set()
 def _restart_maybe(delay: float):
     time.sleep(delay)
     if len(_scans_in_progress) == 0:
-        foreman: Foreman = _get_thread("Foreman")
+        foreman: Foreman = cast(Foreman, _get_thread("Foreman"))
         foreman.resume_all_worker_threads()
 
 
 def emit_scan_start(data: dict):
     if settings.get_setting("pause_workers_during_scan"):
-        foreman: Foreman = _get_thread("Foreman")
+        foreman: Foreman = cast(Foreman, _get_thread("Foreman"))
         foreman.pause_all_worker_threads()
         _scans_in_progress.add(data["library_id"])
 
