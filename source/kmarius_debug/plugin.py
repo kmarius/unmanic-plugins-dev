@@ -13,6 +13,7 @@ class Settings(PluginSettings):
         "skip_after_force_n": False,
         "slow_test_ms": 0,
         "processing_duration_s": 1,
+        "fail_processing": False,
     }
     form_settings = {
     }
@@ -86,6 +87,9 @@ def on_worker_process(data: ProcessItemData):
     command = "; ".join([f"echo {i * 100 // steps}; sleep {sleep_time}" for i in range(steps)])
     command += "; echo 100; touch $1"
 
+    if settings.get_setting("fail_processing"):
+        command += "; exit 1"
+
     data["exec_command"] = ["bash", "-c", command, "_", data["file_in"]]
     data["command_progress_parser"] = lambda line: {"percent": int(line)}
 
@@ -94,6 +98,7 @@ def on_postprocessor_task_results(data: TaskResultData):
     library_id = data["library_id"]
     path = data["final_cache_path"]
     logger.info(f"post-processing library_id={library_id} path={path}")
+    logger.info(data)
 
 
 def _render_frontend_panel(data: PanelData):
