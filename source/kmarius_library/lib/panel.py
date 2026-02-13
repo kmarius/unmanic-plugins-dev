@@ -31,15 +31,15 @@ def critical(f):
     return wrapped
 
 
-def _get_thread(name: str) -> Optional[threading.Thread]:
+def _get_thread(clazz: type) -> Optional[threading.Thread]:
     for thread in threading.enumerate():
-        if thread.name == name:
+        if type(thread) == clazz:
             return thread
     return None
 
 
 def _get_libraryscanner() -> Optional[LibraryScannerManager]:
-    return _get_thread("LibraryScannerManager")
+    return _get_thread(LibraryScannerManager)
 
 
 def _get_library_paths() -> Mapping[int, str]:
