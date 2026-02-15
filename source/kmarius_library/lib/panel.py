@@ -8,6 +8,7 @@ import uuid
 from typing import Mapping, Optional, Collection
 
 from unmanic.libs.filetest import FileTesterThread
+from unmanic.libs.frontend_push_messages import FrontendPushMessages
 from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.unmodels import Libraries
 
@@ -82,7 +83,7 @@ def _test_files_in_lib(library_id: int, items: Collection[str]):
 
     event = scanner.event
     status_updates = queue.Queue()
-    frontend_messages = scanner.data_queues.get('frontend_messages')
+    frontend_messages = FrontendPushMessages()
 
     def send_frontend_message(message):
         frontend_messages.update(
