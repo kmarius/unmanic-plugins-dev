@@ -75,11 +75,14 @@ def _test_files_in_lib(library_id: int, items: Collection[str]):
     scanner = _get_libraryscanner()
     num_threads = scanner.settings.get_concurrent_file_testers()
 
+    files_to_update = set()
+
     # pre-fill queue
     files_to_test = queue.Queue()
     files_to_process = queue.Queue()
     for item in items:
         files_to_test.put(item)
+        files_to_update.add(item)
 
     event = scanner.event
     status_updates = queue.Queue()
@@ -107,6 +110,9 @@ def _test_files_in_lib(library_id: int, items: Collection[str]):
         threads.append(tester)
 
     def queue_up_result(item: dict):
+        path = item.get("path")
+        if path in files_to_update:
+            files_to_update.remove(path)
         scanner.add_path_to_queue(
             item.get('path'), library_id, item.get('priority_score'))
 
@@ -140,6 +146,14 @@ def _test_files_in_lib(library_id: int, items: Collection[str]):
         queue_up_result(files_to_process.get())
 
     frontend_messages.remove_item('libraryScanProgress')
+
+    for file in files_to_update:
+        logger.info(f"Updating timestamp library_id={library_id} path={file} (no processing)")
+        try:
+            mtime = int(os.path.getmtime(file))
+            timestamps.put(library_id, file, mtime)
+        except Exception as e:
+            logger.error(e)
 
 
 @critical
