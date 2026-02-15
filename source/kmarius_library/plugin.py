@@ -5,7 +5,8 @@ from typing import override
 from unmanic.libs.library import Libraries, Library
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID
+from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID, _files_tested, get_files_tested, add_file_tested, \
+    remove_file_tested
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
 from kmarius_library.lib.panel import Panel
 from kmarius_library.lib.types import *
@@ -263,6 +264,8 @@ def on_library_management_file_test(data: FileTestData):
             data['add_file_to_pending_tasks'] = False
             return
 
+        add_file_tested(library_id, path)
+
     if settings.get_setting("caching_enabled"):
         mtime = int(os.path.getmtime(path))
         quiet = settings.get_setting("quiet_caching")
@@ -301,7 +304,11 @@ def on_postprocessor_task_results(data: TaskResultData):
                 if settings.get_setting(p.setting_name_enabled()):
                     enabled_providers.append(p)
 
-        for path in data["destination_files"]:
+        paths = data["destination_files"]
+        if len(paths) == 0:
+            paths = [data["source_data"]["abspath"]]
+
+        for path in paths:
             if combined_settings.is_extension_allowed(library_id, path):
                 if caching_enabled:
                     update_cached_metadata(enabled_providers, path)
@@ -376,10 +383,23 @@ def emit_scan_start(data: dict):
     _prune_timestamps(library_id, frac, set_last_update=set_last_update)
 
 
-def emit_scan_complete(data: dict):
-    logger.info(f"emit_scan_complete {data}")
+def emit_file_queued(data: dict):
+    library_id = data["library_id"]
+    path = data["file_path"]
+    remove_file_tested(library_id, path)
 
-    settings = Settings(library_id=data["library_id"])
+
+def emit_scan_complete(data: dict):
+    library_id = data["library_id"]
+    settings = Settings(library_id=library_id)
+
+    # all files that were tested but not queued
+    # need to have their timestamps updated
+    if settings.get_setting("incremental_scan_enabled"):
+        for file in get_files_tested(library_id, clear=True):
+            logger.info(f"Updating timestamp library_id={library_id} path={file} (no processing)")
+            update_timestamp(library_id, file)
+
     percent = str(settings.get_setting("check_old_metadata"))
     percent = percent.strip().rstrip("%").strip()
     frac = float(percent) / 100
