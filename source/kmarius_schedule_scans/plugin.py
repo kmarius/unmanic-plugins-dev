@@ -1,7 +1,7 @@
 import re
 import threading
 import schedule
-from typing import Optional, override
+from typing import Optional, override, cast
 import pytz
 from datetime import datetime
 
@@ -116,19 +116,17 @@ def _start_library_scan(library_id: int):
 
     library = Library(library_id)
     if library.get_enable_remote_only():
-        logger.error(f"Scan scheduled but library is remote: {
-        library.get_name()}")
+        logger.error(f"Scan scheduled but library is remote: {library.get_name()}")
         return
 
     if not library.get_enable_scanner():
-        logger.error(f"Scan scheduled but scanner is disabled: {
-        library.get_name()}")
+        logger.error(f"Scan scheduled but scanner is disabled: {library.get_name()}")
         return
 
-    # these are somewhat slow because of they are not run in the libraryscanner thread
+    # these are somewhat slow because they are not run in the libraryscanner thread
     # and there a locking issue or something
     logger.info(f"Starting scheduled scan of library {library.get_name()}")
-    scanner.scan_library_path(library.get_path(), library_id)
+    scanner.scan_library_path(library.get_name(), library.get_path(), library_id)
 
 
 def _convert_time(time_str, original_tz_str, target_tz_str):
@@ -141,7 +139,7 @@ def _convert_time(time_str, original_tz_str, target_tz_str):
 
 
 def _scheduler_main():
-    thread: StoppableThread = threading.current_thread()
+    thread: StoppableThread = cast(StoppableThread, threading.current_thread())
     plugins_handler = PluginsHandler()
     sched = schedule.Scheduler()
 
