@@ -1,6 +1,5 @@
 import os.path
 import signal
-import subprocess
 import sys
 import threading
 import time
@@ -17,9 +16,6 @@ from unmanic.libs.unplugins.settings import PluginSettings
 
 from kmarius_hacks.lib import logger, PLUGIN_ID
 from kmarius_hacks.lib.types import *
-
-AUTOSTART_SCRIPT = os.path.join(common.get_home_dir(), ".unmanic",
-                                "plugins", PLUGIN_ID, "init.d", "load-plugins.sh")
 
 
 def _get_thread(name: str) -> Optional[threading.Thread]:
@@ -108,18 +104,13 @@ def should_file_be_added_to_task_list(self, path):
     return getattr(self, Patch.get_real_name("should_file_be_added_to_task_list"))(path)
 
 
-def scan_library_path(self, library_path, library_id):
+def scan_library_path(self, library_name, library_path, library_id):
     plugin_ids = ["kmarius_hacks", "kmarius_library", ]
     for plugin_id in plugin_ids:
         _try_exec_runner(plugin_id, "emit_scan_start", {
             "library_id": library_id,
         })
-    res = getattr(self, Patch.get_real_name("scan_library_path"))(library_path, library_id)
-    plugin_ids.reverse()
-    for plugin_id in plugin_ids:
-        _try_exec_runner(plugin_id, "emit_scan_complete", {
-            "library_id": library_id,
-        })
+    res = getattr(self, Patch.get_real_name("scan_library_path"))(library_name, library_path, library_id)
     return res
 
 
@@ -142,7 +133,7 @@ PATCHES = [
         _get_thread_or_class(LibraryScannerManager),
         "scan_library_path",
         scan_library_path,
-        "Enable emit_scan_start and emit_scan_complete.",
+        "Enable emit_scan_start.",
         "This setting only affects newly spawned file tester threads."
     ),
 ]
@@ -205,19 +196,9 @@ def render_plugin_api(data: PluginApiData):
             # we call this plugin's endpoint after startup to force loading of all plugins
             pass
         case "/stop_unmanic":
-            # supervisor will restart unmanic
+            # stops unmanic, docker will restart the container
             logger.info(f"Restart request received, sending SIGINT")
             os.kill(os.getpid(), signal.SIGINT)
-
-            # the autostart script is only called on container start, so we do it now
-            # TODO: do we need a higher delay or a mechanism to make sure unmanic has quit
-            # and doesn't respond to the startup script before it shuts down?
-            subprocess.call(['/usr/bin/sh', AUTOSTART_SCRIPT, "1"], start_new_session=True)
-        case "/stop_supervisor":
-            subprocess.run(
-                ["/command/s6-svscanctl", "-t", "/run/service"],
-                check=True
-            )
         case path:
             logger.error(f"Unrecognized patch: {path}")
 

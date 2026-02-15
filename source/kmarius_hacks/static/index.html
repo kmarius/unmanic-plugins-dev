@@ -61,35 +61,6 @@
                         }, 1000);
                     }
                 });
-
-            document
-                .querySelector("#stop-supervisor")
-                .addEventListener("click", async _ => {
-                    await fetch("/unmanic/plugin_api/kmarius_hacks/stop_supervisor", {
-                        method: 'POST'
-                    });
-
-                    showAlert("stop-supervisor-alert");
-
-                    if (timer_id === undefined) {
-                        let seconds = 0;
-                        timer_id = setInterval(async function () {
-                            setAlertText("stop-supervisor-alert", `Waiting for unmanic to restart... (${++seconds} seconds passed)`);
-
-                            try {
-                                let response = await fetch("/unmanic/plugin_api/kmarius_hacks", {
-                                    method: 'GET'
-                                });
-                                if (response.ok) {
-                                    clearInterval(timer_id);
-                                    timer_id = undefined;
-                                    clearAlert("stop-supervisor-alert");
-                                }
-                            } catch (e) {
-                            }
-                        }, 1000);
-                    }
-                });
         });
     </script>
 </head>
@@ -103,17 +74,6 @@
         Stop Unmanic
     </button>
     <span class="alert-text" id="stop-unmanic-alert" style="display:none">Waiting for unmanic to restart...</span>
-</div>
-
-<div style="display:flex; flex-direction: row; justify-content: left; align-items: center; margin-bottom: 0.5em;">
-    <button
-            id="stop-supervisor"
-            title="Stop Supervisor, docker will restart it (if configured correctly)"
-            style="width:160px;margin-right: 10px;"
-    >
-        Stop Supervisor
-    </button>
-    <span class="alert-text" id="stop-supervisor-alert" style="display:none">Waiting for unmanic to restart...</span>
 </div>
 
 </html>
