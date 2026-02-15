@@ -185,8 +185,10 @@ def emit_scan_start(data: dict):
 
 
 def emit_scan_complete(data: dict):
+    library_id = data["library_id"]
     if settings.get_setting("pause_workers_during_scan"):
-        _scans_in_progress.remove(data["library_id"])
+        if library_id in _scans_in_progress:
+            _scans_in_progress.remove(library_id)
         threading.Thread(target=_restart_maybe, args=(4,), daemon=True).start()
 
 
