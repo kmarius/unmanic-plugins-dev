@@ -7,7 +7,6 @@ import types
 import uuid
 from typing import Optional, cast
 
-from unmanic.libs import common
 from unmanic.libs.filetest import FileTest
 from unmanic.libs.foreman import Foreman
 from unmanic.libs.libraryscanner import LibraryScannerManager
@@ -109,9 +108,10 @@ def scan_library_path(self, library_name, library_path, library_id):
     for plugin_id in plugin_ids:
         _try_exec_runner(plugin_id, "emit_scan_start", {
             "library_id": library_id,
+            "library_name": library_name,
+            "library_path": library_path,
         })
-    res = getattr(self, Patch.get_real_name("scan_library_path"))(library_name, library_path, library_id)
-    return res
+    return getattr(self, Patch.get_real_name("scan_library_path"))(library_name, library_path, library_id)
 
 
 PATCHES = [
