@@ -184,7 +184,7 @@ def emit_scan_start(data: dict):
         _scans_in_progress.add(data["library_id"])
 
 
-def emit_scan_complete(data: dict):
+def emit_scan_complete(data: ScanCompleteData):
     library_id = data["library_id"]
     if settings.get_setting("pause_workers_during_scan"):
         if library_id in _scans_in_progress:
