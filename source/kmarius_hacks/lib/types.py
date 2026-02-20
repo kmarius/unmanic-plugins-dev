@@ -85,6 +85,8 @@ class PanelData(TypedDict):
 class PluginApiData(TypedDict):
     content_type: str
     content: dict
+    status: int
+    method: str
     path: str
     uri: str
     query: str
