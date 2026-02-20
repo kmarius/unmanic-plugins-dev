@@ -193,19 +193,29 @@ def emit_scan_complete(data: ScanCompleteData):
 
 
 def render_plugin_api(data: PluginApiData):
-    match data["path"]:
-        case "/":
-            # we call this plugin's endpoint after startup to force loading of all plugins
-            pass
-        case "/stop_unmanic":
-            # stops unmanic, docker will restart the container
-            logger.info(f"Restart request received, sending SIGINT")
-            os.kill(os.getpid(), signal.SIGINT)
-        case path:
-            logger.error(f"Unrecognized patch: {path}")
-
     data["content_type"] = "application/json"
     data["content"] = {}
+
+    match (data["path"], data["method"]):
+        case ("/", "GET"):
+            # we call this plugin's endpoint after startup to force loading of all plugins
+            pass
+        case ("/stop_unmanic", "POST"):
+            # stops unmanic, docker will restart the container
+            logger.info(f"Stop request received, sending SIGINT")
+            os.kill(os.getpid(), signal.SIGINT)
+        case (path, method):
+            logger.error(f"Unknown path: {method} {path}")
+            data["content"] = {
+                "error": f"Unknown path: {method} {path}",
+                "success": False,
+            }
+            data["status"] = 404
+            return
+
+    data["content"] = {
+        "success": True,
+    }
 
 
 def render_frontend_panel(data: PanelData):
