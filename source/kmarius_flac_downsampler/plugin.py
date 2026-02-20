@@ -3,7 +3,7 @@ import os
 from unmanic.libs.unplugins.settings import PluginSettings
 
 from kmarius_flac_downsampler.lib.ffmpeg import Probe
-from kmarius_flac_downsampler.lib import logger
+from kmarius_flac_downsampler.lib import logger, PLUGIN_ID
 from kmarius_flac_downsampler.lib.types import FileTestData, ProcessItemData
 
 
@@ -50,8 +50,8 @@ def on_library_management_file_test(data: FileTestData):
             if int(stream_info['sample_rate']) > thresh:
                 data['add_file_to_pending_tasks'] = True
                 data["issues"].append({
-                    "id": "kmarius_flac_downsampler",
-                    "message": f"sample rate too high: {path}"
+                    "id": PLUGIN_ID,
+                    "message": f"Sample rate too high: {path}"
                 })
 
 
@@ -61,13 +61,15 @@ def on_worker_process(data: ProcessItemData):
     sample_rate = settings.get_setting('target_sample_rate')
     sample_fmt = settings.get_setting('target_sample_fmt')
 
-    path = data.get("file_in")
-    ext = os.path.splitext(path)[1][1:].lower()
+    file_in = data.get("file_in")
+    file_out = data.get("file_out")
+
+    ext = os.path.splitext(file_in)[1][1:].lower()
     if ext != "flac":
         return
 
     probe = Probe(logger, allowed_mimetypes=['audio'])
-    if not probe.file(path):
+    if not probe.file(file_in):
         return
 
     for stream_info in probe.get('streams', {}):
@@ -81,10 +83,10 @@ def on_worker_process(data: ProcessItemData):
                 sample_rate = 48000
 
     data['exec_command'] = [
-        'ffmpeg', '-i', path,
+        'ffmpeg', '-i', file_in,
         '-map', '0', '-map_metadata', '0',
-        '-c:v', 'copy',  # keep album covers as is
+        '-c', 'copy',  # keeps album covers as is
         # "-af", "aresample=resampler=soxr", # not avaliable in the container image
         '-sample_fmt', sample_fmt, '-ar', str(sample_rate),
-        data.get('file_out')
+        file_out,
     ]
