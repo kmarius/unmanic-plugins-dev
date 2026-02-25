@@ -107,6 +107,8 @@ def put(library_id: int, path: str, mtime: int):
 
 def put_many(values: list[Tuple[int, str, int]]):
     """list of tuples: (library_id, path, mtime)"""
+    if not values:
+        return
     now = int(time.time())
     values = [value + (now,) for value in values]
     conn = _get_connection()
@@ -179,7 +181,7 @@ def reset_oldest(library_id: int, fraction: float) -> list[str]:
 def get_all_paths(library_id: int = None) -> list[str]:
     conn = _get_connection()
     cur = conn.cursor()
-    if library_id:
+    if library_id is not None:
         cur.execute('''
                     SELECT path
                     FROM timestamps
@@ -225,6 +227,7 @@ def check_oldest(library_id: int, fraction: float, callback: Callable[[str], boo
 
     cur.execute('SELECT count(*) FROM timestamps WHERE library_id = ?', (library_id,))
     num_entries = cur.fetchone()[0]
+
     limit = int(fraction * num_entries)
     limit = max(1, min(limit, num_entries))
 

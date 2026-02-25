@@ -5,7 +5,8 @@ from typing import override
 from unmanic.libs.library import Libraries, Library
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID, get_files_tested, add_file_tested, remove_file_tested
+from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID, get_files_tested, add_file_tested, \
+    remove_file_tested
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
 from kmarius_library.lib.panel import Panel
 from kmarius_library.lib.types import *
@@ -146,14 +147,14 @@ class CombinedSettings:
 
     def get_setting(self, key=None):
         match = re.match(r"^library_(\d+)_(.*)", key)
-        if match:
-            library_id = match.group(1)
-            new_key = match.group(2)
-            if library_id not in self.settings:
-                self.settings[library_id] = Settings(library_id=library_id)
-            return self.settings[library_id].get_setting(new_key)
-        else:
+        if match is None:
             logger.error(f"CombinedSettings: unexpected key: {key}")
+            return None
+        library_id = match.group(1)
+        new_key = match.group(2)
+        if library_id not in self.settings:
+            self.settings[library_id] = Settings(library_id=library_id)
+        return self.settings[library_id].get_setting(new_key)
 
     def get_allowed_extensions(self, library_id: int) -> list[str]:
         if library_id not in self._allowed_extensions:
@@ -161,7 +162,7 @@ class CombinedSettings:
             extensions = settings.get_setting("extensions").split(",")
             extensions = [ext.strip().lstrip(".") for ext in extensions]
             extensions = [ext for ext in extensions if ext != ""]
-            if len(extensions) == 0:
+            if not extensions:
                 extensions = None
             self._allowed_extensions[library_id] = extensions
         return self._allowed_extensions[library_id]
@@ -170,8 +171,7 @@ class CombinedSettings:
         extensions = self.get_allowed_extensions(library_id)
         if extensions is None:
             return True
-        _, ext = os.path.splitext(path)
-        ext = ext.lstrip(".").lower()
+        ext = os.path.splitext(path)[1][1:].lower()
         return ext in extensions
 
     def get_ignored_path_patterns(self, library_id: int) -> list[re.Pattern]:
@@ -180,7 +180,7 @@ class CombinedSettings:
             patterns = []
             for regex_pattern in settings.get_setting("ignored_paths").splitlines():
                 regex_pattern = regex_pattern.strip()
-                if regex_pattern != "" and not regex_pattern.startswith("#"):
+                if regex_pattern and not regex_pattern.startswith("#"):
                     pattern = re.compile(regex_pattern)
                     patterns.append(pattern)
             self._ignored_path_patterns[library_id] = patterns
@@ -208,7 +208,7 @@ def update_cached_metadata(providers: list[MetadataProvider], path: str):
 
             res = p.run_prog(path)
 
-            if res:
+            if res is not None:
                 cache.put(p.name, path, mtime, res)
                 logger.info(f"Updating {p.name} data - {path}")
     except Exception as e:
@@ -263,16 +263,16 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
 
             res = cache.get(p.name, path, mtime, reuse_connection=True)
 
-            if res is None:
-                logger.info(f"No cached {p.name} data found, refreshing - {path}")
-                res = p.run_prog(path)
-                if res:
-                    cache.put(p.name, path, mtime, res, reuse_connection=True)
-            else:
+            if res is not None:
                 if not quiet:
                     logger.info(f"Cached {p.name} data found - {path}")
+            else:
+                logger.info(f"No cached {p.name} data found, refreshing - {path}")
+                res = p.run_prog(path)
+                if res is not None:
+                    cache.put(p.name, path, mtime, res, reuse_connection=True)
 
-            if res:
+            if res is not None:
                 data["shared_info"][p.name] = res
 
 
@@ -291,7 +291,8 @@ def on_postprocessor_task_results(data: TaskResultData, **kwargs):
                     enabled_providers.append(p)
 
         paths = data["destination_files"]
-        if len(paths) == 0:
+        if not paths:
+            # TODO: this happens because we are not moving unchanged files to cache and back
             paths = [data["source_data"]["abspath"]]
 
         for path in paths:
@@ -299,7 +300,6 @@ def on_postprocessor_task_results(data: TaskResultData, **kwargs):
                 if caching_enabled:
                     update_cached_metadata(enabled_providers, path)
                 if incremental_scan_enabled:
-                    # TODO: it could be desirable to not add this file to the db and have it checked again
                     logger.info(f"Updating timestamp library_id={library_id} path={path}")
                     update_timestamp(library_id, path)
 
@@ -307,7 +307,7 @@ def on_postprocessor_task_results(data: TaskResultData, **kwargs):
 def _prune_timestamps(library_id=None, fraction=1.0, set_last_update=True):
     num_pruned = 0
 
-    if library_id:
+    if library_id is not None:
         library_ids = [library_id]
     else:
         library_ids = []

@@ -55,8 +55,7 @@ def needs_encoding(stream_info: dict, path: str, bitrate_cutoff: int) -> bool:
     if bit_rate is not None and bit_rate > bitrate_cutoff:
         return True
 
-    pixel_fmt = stream_info["pix_fmt"] if "pix_fmt" in stream_info else None
-    if pixel_fmt is not None and pixel_fmt != "yuv420p":
+    if "pix_fmt" in stream_info and stream_info["pix_fmt"] != "yuv420p":
         return True
 
     return False
@@ -80,7 +79,7 @@ def video_stream_mapping(
             f"-b:v:{idx}", f"{target_bitrate}"
         ]
         return {
-            'stream_mapping': ['-map', '0:v:{}'.format(idx)],
+            'stream_mapping': ['-map', f'0:v:{idx}'],
             'stream_encoding': stream_encoding,
         }
 
@@ -100,9 +99,9 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
     path = data['path']
     for idx, stream_info in enumerate(video_streams):
         mapping = video_stream_mapping(stream_info, idx, path, target_bitrate, bitrate_cutoff)
-        if mapping:
+        if mapping is not None:
             video_mappings[idx] = mapping
 
     task_data["mappings"]["video"] = video_mappings
-    if len(video_mappings) > 0:
+    if video_mappings:
         task_data["add_file_to_pending_tasks"] = True

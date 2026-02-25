@@ -135,7 +135,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         }
 
     task_data["mappings"]["subtitle"] = subtitle_mappings
-    if len(subtitle_mappings) > 0:
+    if subtitle_mappings:
         task_data["add_file_to_pending_tasks"] = True
 
 

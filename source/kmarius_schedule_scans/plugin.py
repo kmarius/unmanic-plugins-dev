@@ -97,15 +97,15 @@ class Settings(PluginSettings):
         return form_settings
 
 
-def _get_thread_by_name(name: str) -> Optional[threading.Thread]:
+def _get_thread(clazz: type) -> Optional[threading.Thread]:
     for thread in threading.enumerate():
-        if thread.name == name:
+        if type(thread) == clazz:
             return thread
     return None
 
 
 def _get_library_scanner() -> Optional[LibraryScannerManager]:
-    return _get_thread_by_name("LibraryScannerManager")
+    return _get_thread(LibraryScannerManager)
 
 
 def _start_library_scan(library_id: int):
@@ -151,18 +151,18 @@ def _scheduler_main():
         if settings.get_setting(f"library_{lib.id}_cron_enabled"):
             for time_str in settings.get_setting(f"library_{lib.id}_scan_time").split(","):
                 time_str = time_str.strip()
-                if time_str == "":
+                if not time_str:
                     continue
                 if re.match(r"^\d{1}:\d{2}$", time_str):
                     time_str = "0" + time_str
                 if not re.match(r"^\d{2}:\d{2}$", time_str):
                     logger.error(f"Invalid time format for library {lib.name}: '{time_str}'")
                     continue
-                if container_timezone and timezone != "":
+                if container_timezone and timezone:
                     time_str = _convert_time(time_str, timezone, container_timezone)
                 sched.every().day.at(time_str).do(_start_library_scan, lib.id)
 
-    if len(sched.jobs) == 0:
+    if not sched.jobs:
         logger.info("No jobs scheduled, stopping thread.")
         return
 
@@ -190,7 +190,7 @@ def _scheduler_main():
                 logger.info(f"Next action in {hours_str}{minutes_str}{seconds_str}")
             thread.sleep(delay)
 
-        if len(plugins_handler.get_plugin_list_filtered_and_sorted(plugin_id=PLUGIN_ID, length=1)) == 0:
+        if not plugins_handler.get_plugin_list_filtered_and_sorted(plugin_id=PLUGIN_ID, length=1):
             logger.info("Plugin was uninstalled, stopping thread.")
             return
 

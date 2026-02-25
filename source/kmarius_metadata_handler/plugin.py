@@ -14,10 +14,13 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
 
     path = data["path"]
 
+    has_metadata = False
+    has_track_metadata = False
+
     # check file itself for metadata
     tags = ffprobe.get("format", {}).get("tags", {})
     if "title" in tags or "comment" in tags:
-        task_data["has_metadata"] = True
+        has_metadata = True
 
     if mediainfo is None:
         command = ["mediainfo", "--output=JSON", path]
@@ -26,16 +29,14 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         out, err = pipe.communicate()
         mediainfo = json.loads(out.decode("utf-8"))
 
-    has_track_metadata = False
     for track in mediainfo.get("media", {}).get("track", []):
-        # TODO: we are removing title, name, comment, handler_name, vendor_id and should probably als check these here
+        # TODO: we are removing title, name, comment, handler_name, vendor_id and should probably also check these here
         if "Title" in track or "Comment" in track:
             has_track_metadata = True
+            has_metadata = True
             break
 
     if has_track_metadata:
-        task_data["has_metadata"] = True
-
         # check all streams for metadata
         streams = {}
         for stream_info in ffprobe.get('streams'):
@@ -64,7 +65,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
                 if i in stream_mapping:
                     mapping = stream_mapping[i]
                     # len == 0 means streams are removed
-                    if len(mapping["stream_encoding"]) > 0:
+                    if mapping["stream_encoding"]:
                         mapping["stream_encoding"] += [
                             f"-metadata:s:a:{i}", "title=",
                             f"-metadata:s:a:{i}", "name=",
@@ -85,7 +86,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
                         ],
                     }
 
-    if task_data.get("has_metadata", False):
+    if has_metadata:
         task_data["add_file_to_pending_tasks"] = True
         data["issues"].append({
             "id": "kmarius_metadata_handler",

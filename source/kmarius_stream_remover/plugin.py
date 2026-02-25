@@ -18,5 +18,5 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
 
         task_data["mappings"][stream_type] = mappings
 
-        if len(mappings) > 0:
+        if mappings:
             task_data["add_file_to_pending_tasks"] = True

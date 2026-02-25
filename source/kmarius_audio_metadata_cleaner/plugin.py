@@ -58,9 +58,9 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
     settings = get_settings_object(data.get('library_id'))
 
     path = data.get("path")
-    ext = os.path.splitext(path)[1].lower()
+    ext = os.path.splitext(path)[1][1:].lower()
 
-    if ext == ".flac":
+    if ext == "flac":
         flac_tags = settings.get_setting('flac_tags')
 
         metadata = FLAC(path)
@@ -71,9 +71,9 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
                     "id": PLUGIN_ID,
                     "message": f"metadata found: {path}"
                 })
-                break
+                return
 
-    elif ext == ".mp3":
+    elif ext == "mp3":
         mp3_tags = settings.get_setting('mp3_tags')
 
         metadata = MP3(path)
@@ -85,9 +85,9 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
                         "id": PLUGIN_ID,
                         "message": f"metadata found: {path}"
                     })
-                    break
+                    return
 
-    elif ext == ".m4a":
+    elif ext == "m4a":
         mp4_tags = settings.get_setting('mp4_tags')
 
         metadata = MP4(path)
@@ -98,49 +98,45 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
                     "id": PLUGIN_ID,
                     "message": f"metadata found: {path}"
                 })
-                break
+                return
 
 
 def on_worker_process(data: ProcessItemData, **kwargs):
     settings = get_settings_object(data.get('library_id'))
 
     path = data.get("file_in")
-    ext = os.path.splitext(path)[1].lower()
+    ext = os.path.splitext(path)[1][1:].lower()
 
-    if ext == ".flac":
+    modified = False
+    metadata = None
+    if ext == "flac":
         flac_tags = settings.get_setting('flac_tags')
 
         metadata = FLAC(path)
-        modified = False
         for tag in flac_tags:
             if tag in metadata:
                 del metadata[tag]
                 modified = True
-        if modified:
-            metadata.save()
 
-    elif ext == ".mp3":
+    elif ext == "mp3":
         mp3_tags = settings.get_setting('mp3_tags')
 
         metadata = MP3(path)
-        modified = True
         for tag in list(metadata.keys()):
             for prefix in mp3_tags:
                 if tag.startswith(prefix):
                     del metadata[tag]
                     modified = True
                     break
-        if modified:
-            metadata.save()
 
-    elif ext == ".m4a":
+    elif ext == "m4a":
         mp4_tags = settings.get_setting('mp4_tags')
 
         metadata = MP4(path)
-        modified = False
         for tag in mp4_tags:
             if tag in metadata:
                 del metadata[tag]
                 modified = True
-        if modified:
-            metadata.save()
+
+    if metadata is not None and modified:
+        metadata.save()

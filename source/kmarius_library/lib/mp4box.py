@@ -1,5 +1,7 @@
 import subprocess
 import re
+from typing import Dict
+
 from . import logger
 
 
@@ -18,14 +20,14 @@ class MP4Box:
         tracks = []
         progressive = False
 
-        def consume_stream(lines: list[str]):
+        def consume_stream(lines: list[str]) -> dict | None:
             # Track 6 Info - ID 6 - TimeScale 1000000
             match = re.match(r'^# Track \d+ Info - ID (\d+) - TimeScale (\d+)$', lines[0])
             if not match:
                 logger.error(f"malformed mp4box output: {lines[0]}")
                 logger.error(output)
                 return None
-            track = {
+            track: dict = {
                 "id": int(match.group(1)),
                 "timescale": int(match.group(2)),
             }
@@ -63,7 +65,7 @@ class MP4Box:
                 idx += 1
 
             track = consume_stream(lines[idx:])
-            if not track:
+            if track is None:
                 return None
             tracks.append(track)
             idx += 1

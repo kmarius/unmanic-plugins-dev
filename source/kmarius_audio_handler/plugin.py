@@ -24,25 +24,25 @@ def search_eng_idx(streams: dict) -> Optional[int]:
 
 # convert non-aac streams to aac
 def audio_stream_mapping(stream_info: dict, idx: int) -> Optional[dict]:
-    # TODO: convert > 6 channels to 6?
+    # TODO: always convert > 6 channels to 6?
     codec_name = stream_info["codec_name"]
-    if codec_name != "aac":
-        logger.info(f"converting audio stream {idx} from {codec_name}")
-        stream_encoding = ['-c:a:{}'.format(idx), "aac"]
-        if 'channels' in stream_info:
-            channels = int(stream_info.get('channels'))
-            if int(channels) > 6:
-                channels = 6
-            calculated_bitrate = channels * 64
-            stream_encoding += [
-                f'-ac:a:{idx}', f'{channels}', f'-b:a:{idx}',
-                f"{calculated_bitrate}k"
-            ]
-        return {
-            'stream_mapping': ['-map', '0:a:{}'.format(idx)],
-            'stream_encoding': stream_encoding,
-        }
-    return None
+    if codec_name == "aac":
+        return None
+    logger.info(f"converting audio stream {idx} from {codec_name}")
+    stream_encoding = [f'-c:a:{idx}', "aac"]
+    if 'channels' in stream_info:
+        channels = int(stream_info.get('channels'))
+        if channels > 6:
+            channels = 6
+        calculated_bitrate = channels * 64
+        stream_encoding += [
+            f'-ac:a:{idx}', f'{channels}',
+            f'-b:a:{idx}', f"{calculated_bitrate}k",
+        ]
+    return {
+        'stream_mapping': ['-map', f'0:a:{idx}'],
+        'stream_encoding': stream_encoding,
+    }
 
 
 def on_library_management_file_test(data: FileTestData, **kwargs):
@@ -69,5 +69,5 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
             audio_mappings[idx] = mapping
 
     task_data["mappings"]["audio"] = audio_mappings
-    if len(audio_mappings) > 0:
+    if audio_mappings:
         task_data["add_file_to_pending_tasks"] = True

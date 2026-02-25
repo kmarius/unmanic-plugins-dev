@@ -5,7 +5,7 @@ import re
 import threading
 import traceback
 import uuid
-from typing import Mapping, Optional, Collection
+from typing import Optional, Collection, Dict
 
 from unmanic.libs.filetest import FileTesterThread
 from unmanic.libs.frontend_push_messages import FrontendPushMessages
@@ -22,7 +22,7 @@ def critical(f):
 
     def wrapped(*args, **kwargs):
         if not lock.acquire(blocking=False):
-            logger.info("Could not acquire lock")
+            logger.error("Could not acquire lock")
             return
         try:
             f(*args, **kwargs)
@@ -43,7 +43,7 @@ def _get_libraryscanner() -> Optional[LibraryScannerManager]:
     return _get_thread(LibraryScannerManager)
 
 
-def _get_library_paths() -> Mapping[int, str]:
+def _get_library_paths() -> Dict[int, str]:
     paths = {}
     for lib in Libraries().select().where(Libraries.enable_remote_only == False):
         paths[lib.id] = lib.path
@@ -141,8 +141,9 @@ def _test_files_in_lib(library_id: int, items: Collection[str]):
     frontend_messages.remove_item('libraryScanProgress')
 
     # ensure all file_queued events have been emitted
-    while not scanner.scheduledtasks.empty():
-        event.wait(0.25)
+    if hasattr(scanner, "scheduledtasks"):
+        while not scanner.scheduledtasks.empty():
+            event.wait(0.25)
 
     values = []
     for path, mtime in get_files_tested(library_id, clear=True).items():
@@ -152,7 +153,7 @@ def _test_files_in_lib(library_id: int, items: Collection[str]):
 
 
 @critical
-def _test_files_thread(items_per_lib: Mapping[int, Collection[str]]):
+def _test_files_thread(items_per_lib: Dict[int, Collection[str]]):
     for library_id, paths in items_per_lib.items():
         _test_files_in_lib(library_id, paths)
 
@@ -187,8 +188,6 @@ class Panel:
             extensions = self.settings.get_setting(f"library_{library_id}_extensions").split(",")
             extensions = [ext.strip().lstrip(".") for ext in extensions]
             extensions = [ext for ext in extensions if ext != ""]
-            if len(extensions) == 0:
-                extensions = None
             self._allowed_extensions[library_id] = extensions
         return self._allowed_extensions[library_id]
 
@@ -204,7 +203,7 @@ class Panel:
             patterns = []
             for pattern in self.settings.get_setting(f"library_{library_id}_ignored_paths").splitlines():
                 pattern = pattern.strip()
-                if pattern != "" and not pattern.startswith("#"):
+                if pattern and not pattern.startswith("#"):
                     patterns.append(re.compile(pattern))
             self._ignore_patterns[library_id] = patterns
         return self._ignore_patterns[library_id]
@@ -265,7 +264,7 @@ class Panel:
         library_paths = _get_library_paths()
 
         scanner = _get_libraryscanner()
-        if not scanner:
+        if scanner is None:
             raise Exception(f"Could not get LibraryScanner thread")
 
         distinct = set()
@@ -334,7 +333,7 @@ class Panel:
             children.sort(key=lambda c: c["title"])
             files.sort(key=lambda c: c["title"])
 
-            if len(files) > 0:
+            if files:
                 if timestamp_cache:
                     for file in files:
                         file["timestamp"] = timestamp_cache.get(file["path"], None)
@@ -482,7 +481,7 @@ class Panel:
         for arg, ls in arguments.items():
             arguments[arg] = [val.decode('utf-8') for val in ls]
 
-        if len(data["body"]) == 0:
+        if not data["body"]:
             body = {}
         else:
             body = json.loads(data["body"].decode('utf-8'))

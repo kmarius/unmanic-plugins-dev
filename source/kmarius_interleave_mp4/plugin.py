@@ -50,7 +50,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         mp4box = data["shared_info"]["mp4box"]
     else:
         mp4box = MP4Box.probe(path)
-        if mp4box:
+        if mp4box is not None:
             data["shared_info"]["mp4box"] = mp4box
 
     if mp4box is None:

@@ -29,7 +29,6 @@ def _get_connection(reuse_connection=False) -> sqlite3.Connection:
     if reuse_connection:
         if not hasattr(local, "connection"):
             local.connection = sqlite3.connect(DB_PATH)
-
         return local.connection
     else:
         return sqlite3.connect(DB_PATH)
@@ -63,15 +62,12 @@ def init(tables: list[str]):
                                data TEXT DEFAULT NULL
                            )''')
 
-            if False and _check_column_exists(conn, table, "last_update"):
-                cur.execute(f'''DROP INDEX IF EXISTS idx_{table}_last_update''')
-                cur.execute(f'''alter table {table} DROP column last_update''')
-
             if not _check_column_exists(conn, table, "last_update"):
                 logger.info(f'Creating missing last_update column in table {table}')
                 cur.execute(f'ALTER TABLE {table} ADD COLUMN last_update INTEGER NOT NULL DEFAULT 0')
                 cur.execute(f'UPDATE {table} SET last_update = mtime')
-                cur.execute(f'CREATE INDEX IF NOT EXISTS idx_{table}_last_update ON {table} (last_update)')
+
+            cur.execute(f'CREATE INDEX IF NOT EXISTS idx_{table}_last_update ON {table} (last_update)')
 
         maintenance_mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
         if not maintenance_mode:
