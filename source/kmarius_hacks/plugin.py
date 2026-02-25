@@ -177,14 +177,14 @@ def _restart_maybe(delay: float):
         foreman.resume_all_worker_threads()
 
 
-def emit_scan_start(data: dict):
+def emit_scan_start(data: dict, **kwargs):
     if settings.get_setting("pause_workers_during_scan"):
         foreman: Foreman = cast(Foreman, _get_thread("Foreman"))
         foreman.pause_all_worker_threads()
         _scans_in_progress.add(data["library_id"])
 
 
-def emit_scan_complete(data: ScanCompleteData):
+def emit_scan_complete(data: ScanCompleteData, **kwargs):
     library_id = data["library_id"]
     if settings.get_setting("pause_workers_during_scan"):
         if library_id in _scans_in_progress:
@@ -192,7 +192,7 @@ def emit_scan_complete(data: ScanCompleteData):
         threading.Thread(target=_restart_maybe, args=(4,), daemon=True).start()
 
 
-def render_plugin_api(data: PluginApiData):
+def render_plugin_api(data: PluginApiData, **kwargs):
     data["content_type"] = "application/json"
     data["content"] = {}
 
@@ -218,7 +218,7 @@ def render_plugin_api(data: PluginApiData):
     }
 
 
-def render_frontend_panel(data: PanelData):
+def render_frontend_panel(data: PanelData, **kwargs):
     data["content_type"] = "text/html"
 
     with open(os.path.abspath(os.path.join(os.path.dirname(__file__), 'static', 'index.html'))) as file:

@@ -45,7 +45,7 @@ class Settings(PluginSettings):
         return form_settings
 
 
-def on_postprocessor_task_results(data: TaskResultData):
+def on_postprocessor_task_results(data: TaskResultData, **kwargs):
     settings = Settings()
     if not data["task_processing_success"]:
         smtp_server = settings.get_setting("smtp_server")

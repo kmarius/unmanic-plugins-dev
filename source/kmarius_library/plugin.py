@@ -5,8 +5,7 @@ from typing import override
 from unmanic.libs.library import Libraries, Library
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID, _files_tested, get_files_tested, add_file_tested, \
-    remove_file_tested
+from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID, get_files_tested, add_file_tested, remove_file_tested
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
 from kmarius_library.lib.panel import Panel
 from kmarius_library.lib.types import *
@@ -229,16 +228,7 @@ def is_file_unchanged(library_id: int, path: str, mtime: int) -> bool:
     return stored_timestamp == mtime
 
 
-def init_shared_data(data: FileTestData, settings: Settings):
-    # we attach a settings instance because we need those in kmarius_library_aux
-    if not "shared_info" in data:
-        data["shared_info"] = {}
-    shared_info = data["shared_info"]
-    if not "kmarius_library" in shared_info:
-        shared_info["kmarius_library"] = settings
-
-
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     settings = Settings(library_id=data.get('library_id'))
     path = data["path"]
     library_id = data["library_id"]
@@ -251,8 +241,6 @@ def on_library_management_file_test(data: FileTestData):
         data['add_file_to_pending_tasks'] = False
         return
 
-    init_shared_data(data, settings)
-
     if settings.get_setting("incremental_scan_enabled"):
         mtime = int(os.path.getmtime(path))
         if is_file_unchanged(library_id, path, mtime):
@@ -263,7 +251,6 @@ def on_library_management_file_test(data: FileTestData):
                 })
             data['add_file_to_pending_tasks'] = False
             return
-
         add_file_tested(library_id, path, mtime)
 
     if settings.get_setting("caching_enabled"):
@@ -289,13 +276,12 @@ def on_library_management_file_test(data: FileTestData):
                 data["shared_info"][p.name] = res
 
 
-def on_postprocessor_task_results(data: TaskResultData):
+def on_postprocessor_task_results(data: TaskResultData, **kwargs):
     if data["task_processing_success"] and data["file_move_processes_success"]:
-        settings = Settings(library_id=data["library_id"])
+        library_id = data["library_id"]
+        settings = Settings(library_id=library_id)
         incremental_scan_enabled = settings.get_setting("incremental_scan_enabled")
         caching_enabled = settings.get_setting("caching_enabled")
-
-        library_id = data["library_id"]
 
         enabled_providers = []
 
@@ -355,15 +341,15 @@ def _prune_metadata(fraction=1.0):
     logger.info(f"Pruned {num_pruned} metadata items")
 
 
-def render_frontend_panel(data: PanelData):
+def render_frontend_panel(data: PanelData, **kwargs):
     panel.render_frontend_panel(data)
 
 
-def render_plugin_api(data: PluginApiData):
+def render_plugin_api(data: PluginApiData, **kwargs):
     panel.render_plugin_api(data)
 
 
-def emit_scan_start(data: dict):
+def emit_scan_start(data: dict, **kwargs):
     logger.info(f"emit_scan_start {data}")
 
     library_id = data["library_id"]
@@ -383,13 +369,13 @@ def emit_scan_start(data: dict):
     _prune_timestamps(library_id, frac, set_last_update=set_last_update)
 
 
-def emit_file_queued(data: dict):
+def emit_file_queued(data: dict, **kwargs):
     library_id = data["library_id"]
     path = data["file_path"]
     remove_file_tested(library_id, path)
 
 
-def emit_scan_complete(data: dict):
+def emit_scan_complete(data: dict, **kwargs):
     library_id = data["library_id"]
     settings = Settings(library_id=library_id)
 

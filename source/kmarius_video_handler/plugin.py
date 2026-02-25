@@ -87,7 +87,7 @@ def video_stream_mapping(
     return None
 
 
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     task_data = init_task_data(data)
 
     settings = Settings(library_id=data.get('library_id'))

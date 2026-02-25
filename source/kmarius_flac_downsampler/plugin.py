@@ -29,7 +29,7 @@ class Settings(PluginSettings):
     }
 
 
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     settings = Settings(library_id=data.get('library_id'))
     thresh = settings.get_setting('sample_rate_threshold')
 
@@ -55,7 +55,7 @@ def on_library_management_file_test(data: FileTestData):
                 })
 
 
-def on_worker_process(data: ProcessItemData):
+def on_worker_process(data: ProcessItemData, **kwargs):
     settings = Settings(library_id=data.get('library_id'))
     thresh = settings.get_setting('sample_rate_threshold')
     sample_rate = settings.get_setting('target_sample_rate')

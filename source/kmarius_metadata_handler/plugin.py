@@ -5,9 +5,10 @@ from kmarius_executor.lib import init_task_data
 from kmarius_metadata_handler.lib.types import FileTestData
 
 
-def on_library_management_file_test(data: FileTestData):
-    shared_info = data["shared_info"]
+def on_library_management_file_test(data: FileTestData, **kwargs):
     task_data = init_task_data(data)
+
+    shared_info = data["shared_info"]
     ffprobe = shared_info["ffprobe"]
     mediainfo = shared_info.get("mediainfo")
 

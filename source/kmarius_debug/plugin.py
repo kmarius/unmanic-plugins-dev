@@ -37,7 +37,7 @@ for lib in Libraries().select().where(Libraries.enable_remote_only == False):
     _reset_scan_info(lib.id)
 
 
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     library_id = data["library_id"]
     path = data["path"]
     settings = Settings(library_id=library_id)
@@ -66,7 +66,7 @@ def on_library_management_file_test(data: FileTestData):
         return
 
 
-def on_worker_process(data: ProcessItemData):
+def on_worker_process(data: ProcessItemData, **kwargs):
     library_id = data["library_id"]
     path = data["file_in"]
     settings = Settings(library_id=library_id)
@@ -94,16 +94,16 @@ def on_worker_process(data: ProcessItemData):
     data["command_progress_parser"] = lambda line: {"percent": int(line)}
 
 
-def on_postprocessor_task_results(data: TaskResultData):
+def on_postprocessor_task_results(data: TaskResultData, **kwargs):
     library_id = data["library_id"]
     path = data["final_cache_path"]
     logger.info(f"post-processing library_id={library_id} path={path}")
     logger.info(data)
 
 
-def _render_frontend_panel(data: PanelData):
+def _render_frontend_panel(data: PanelData, **kwargs):
     pass
 
 
-def _render_plugin_api(data: PluginApiData):
+def _render_plugin_api(data: PluginApiData, **kwargs):
     pass

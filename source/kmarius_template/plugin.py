@@ -14,21 +14,21 @@ class Settings(PluginSettings):
         super(Settings, self).__init__(*args, **kwargs)
 
 
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     pass
 
 
-def on_worker_process(data: ProcessItemData):
+def on_worker_process(data: ProcessItemData, **kwargs):
     pass
 
 
-def on_postprocessor_task_results(data: TaskResultData):
+def on_postprocessor_task_results(data: TaskResultData, **kwargs):
     pass
 
 
-def render_frontend_panel(data: PanelData):
+def render_frontend_panel(data: PanelData, **kwargs):
     pass
 
 
-def render_plugin_api(data: PluginApiData):
+def render_plugin_api(data: PluginApiData, **kwargs):
     pass

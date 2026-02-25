@@ -35,7 +35,7 @@ def is_progressive(mp4box: dict) -> bool:
     return mp4box.get("progressive", False)
 
 
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     library_id = data["library_id"]
     settings = Settings(library_id=library_id)
     param = int(settings.get_setting("interleave_parameter"))
@@ -65,7 +65,7 @@ def on_library_management_file_test(data: FileTestData):
         data["add_file_to_pending_tasks"] = True
 
 
-def on_worker_process(data: ProcessItemData):
+def on_worker_process(data: ProcessItemData, **kwargs):
     settings = Settings(library_id=data["library_id"])
     param = int(settings.get_setting("interleave_parameter"))
 

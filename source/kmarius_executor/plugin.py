@@ -2,7 +2,7 @@ import os
 
 from unmanic.libs.unplugins.settings import PluginSettings
 
-from kmarius_executor.lib import logger, init_task_data, put_task_data, get_task_data, clear_task_data
+from kmarius_executor.lib import logger, init_task_data, clear_task_data, get_task_data, put_task_data
 from kmarius_executor.lib.ffmpeg import StreamMapper, Parser
 from kmarius_executor.lib.types import *
 
@@ -47,7 +47,7 @@ class PluginStreamMapper(StreamMapper):
         return self.mappings[stream_type][stream_id]
 
 
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     task_data = init_task_data(data)
     library_id = data.get("library_id")
     path = data.get("path")
@@ -60,7 +60,7 @@ def on_library_management_file_test(data: FileTestData):
         clear_task_data(library_id, path)
 
 
-def on_worker_process(data: ProcessItemData):
+def on_worker_process(data: ProcessItemData, **kwargs):
     library_id = data["library_id"]
     path = data["original_file_path"]
 

@@ -45,7 +45,7 @@ def audio_stream_mapping(stream_info: dict, idx: int) -> Optional[dict]:
     return None
 
 
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     task_data = init_task_data(data)
 
     # TODO: add functionality for foreign language films

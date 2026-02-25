@@ -8,7 +8,7 @@ PLUGIN_ID = "kmarius_executor"
 logger = logging.getLogger(f"Unmanic.Plugin.{PLUGIN_ID}")
 
 
-def streams_from_probe(probe_info: dict) -> dict:
+def _streams_from_probe(probe_info: dict) -> dict:
     streams = {
         "audio": [],
         "video": [],
@@ -33,7 +33,7 @@ def init_task_data(data: FileTestData) -> dict:
     if "task_data" not in shared_info:
         shared_info["task_data"] = {
             "add_file_to_pending_tasks": False,
-            "streams": streams_from_probe(shared_info["ffprobe"]),
+            "streams": _streams_from_probe(shared_info["ffprobe"]),
             "mappings": {},
             "ffprobe": shared_info["ffprobe"],
         }

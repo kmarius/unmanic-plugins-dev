@@ -4,7 +4,7 @@ from kmarius_container_handler.lib.types import FileTestData
 from kmarius_executor.lib import init_task_data
 
 
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     task_data = init_task_data(data)
 
     ext = os.path.splitext(data.get("path"))[1][1:].lower()

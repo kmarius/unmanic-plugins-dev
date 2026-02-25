@@ -121,7 +121,7 @@ class PluginStreamMapper(StreamMapper):
         return args
 
 
-def on_library_management_file_test(data: FileTestData):
+def on_library_management_file_test(data: FileTestData, **kwargs):
     task_data = init_task_data(data)
 
     subtitle_streams = task_data["streams"]["subtitle"]
@@ -139,7 +139,7 @@ def on_library_management_file_test(data: FileTestData):
         task_data["add_file_to_pending_tasks"] = True
 
 
-def on_worker_process(data: ProcessItemData):
+def on_worker_process(data: ProcessItemData, **kwargs):
     settings = Settings(library_id=data.get('library_id'))
 
     # Default to no FFMPEG command required. This prevents the FFMPEG command from running if it is not required
