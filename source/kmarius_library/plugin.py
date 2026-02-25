@@ -224,8 +224,7 @@ def update_timestamp(library_id: int, path: str):
         logger.error(e)
 
 
-def is_file_unchanged(library_id: int, path: str) -> bool:
-    mtime = int(os.path.getmtime(path))
+def is_file_unchanged(library_id: int, path: str, mtime: int) -> bool:
     stored_timestamp = timestamps.get(library_id, path, reuse_connection=True)
     return stored_timestamp == mtime
 
@@ -255,7 +254,8 @@ def on_library_management_file_test(data: FileTestData):
     init_shared_data(data, settings)
 
     if settings.get_setting("incremental_scan_enabled"):
-        if is_file_unchanged(library_id, path):
+        mtime = int(os.path.getmtime(path))
+        if is_file_unchanged(library_id, path, mtime):
             if not settings.get_setting("quiet_incremental_scan"):
                 data["issues"].append({
                     'id': PLUGIN_ID,
@@ -264,7 +264,7 @@ def on_library_management_file_test(data: FileTestData):
             data['add_file_to_pending_tasks'] = False
             return
 
-        add_file_tested(library_id, path)
+        add_file_tested(library_id, path, mtime)
 
     if settings.get_setting("caching_enabled"):
         mtime = int(os.path.getmtime(path))
@@ -396,9 +396,11 @@ def emit_scan_complete(data: dict):
     # all files that were tested but not queued
     # need to have their timestamps updated
     if settings.get_setting("incremental_scan_enabled"):
-        for file in get_files_tested(library_id, clear=True):
-            logger.info(f"Updating timestamp library_id={library_id} path={file} (no processing)")
-            update_timestamp(library_id, file)
+        values = []
+        for path, mtime in get_files_tested(library_id, clear=True).items():
+            logger.info(f"Updating timestamp library_id={library_id} path={path} to {mtime} (no processing)")
+            values.append((library_id, path, mtime))
+        timestamps.put_many(values)
 
     percent = str(settings.get_setting("check_old_metadata"))
     percent = percent.strip().rstrip("%").strip()
