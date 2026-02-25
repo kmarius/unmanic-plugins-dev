@@ -32,6 +32,18 @@ def _check_column_exists(conn: sqlite3.Connection, table_name: str, column_name:
     return any(column[1] == column_name for column in columns)
 
 
+def _perform_maintenance(cur: sqlite3.Cursor, mode: str):
+    if mode == "off":
+        return
+    if mode in ["basic", "full"]:
+        cur.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+        cur.execute('PRAGMA optimize')
+    else:
+        logger.error(f"Unknown UNMANIC_SQLITE_MAINTENANCE mode '{mode}'")
+    if mode == "full":
+        cur.execute('VACUUM')
+
+
 # check the database table, create it if it doesn't exist.
 # migration for the addition of a column consists of dropping the table
 def init():
@@ -70,27 +82,35 @@ def init():
             cur.execute('UPDATE timestamps SET last_update = mtime')
 
         cur.execute('CREATE INDEX IF NOT EXISTS idx_last_update ON timestamps (last_update)')
+
+        maintenance_mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
+        if not maintenance_mode:
+            maintenance_mode = "basic"
+        _perform_maintenance(cur, maintenance_mode)
+
+        conn.commit()
     conn.close()
 
 
 def put(library_id: int, path: str, mtime: int):
-    conn = _get_connection()
-    cur = conn.cursor()
     now = int(time.time())
-    cur.execute('''
-                INSERT INTO timestamps (library_id, path, mtime, last_update)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(library_id, path) DO UPDATE SET (mtime, last_update) = (EXCLUDED.mtime, EXCLUDED.last_update)
-                ''', (library_id, path, mtime, now))
-    conn.commit()
+    conn = _get_connection()
+    with conn:
+        cur = conn.cursor()
+        cur.execute('''
+                    INSERT INTO timestamps (library_id, path, mtime, last_update)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(library_id, path) DO UPDATE SET (mtime, last_update) = (EXCLUDED.mtime, EXCLUDED.last_update)
+                    ''', (library_id, path, mtime, now))
+        conn.commit()
 
 
 def put_many(values: list[Tuple[int, str, int]]):
     """list of tuples: (library_id, path, mtime)"""
-    conn = _get_connection()
-    cur = conn.cursor()
     now = int(time.time())
     values = [value + (now,) for value in values]
+    conn = _get_connection()
+    cur = conn.cursor()
     with conn:
         cur.executemany('''
                         INSERT INTO timestamps (library_id, path, mtime, last_update)
@@ -113,10 +133,9 @@ def get(library_id: int, path: str, reuse_connection=False):
 # we only allow batch loading with fixed library_id
 def get_many(library_id: int, paths: list[str]):
     conn = _get_connection()
+    cur = conn.cursor()
     with conn:
-        cur = conn.cursor()
         mtimes = []
-
         # I tested this with a temp relation instead of a loop and int was faster at > 15 items per query
         for path in paths:
             cur.execute(
@@ -131,8 +150,8 @@ def reset_oldest(library_id: int, fraction: float) -> list[str]:
     if fraction <= 0:
         return []
     conn = _get_connection()
+    cur = conn.cursor()
     with conn:
-        cur = conn.cursor()
         cur.execute(f'SELECT count(*) FROM timestamps WHERE library_id = ?', (library_id,))
         num_entries = cur.fetchone()[0]
 

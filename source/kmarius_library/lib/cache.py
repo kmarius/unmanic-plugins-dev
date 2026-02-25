@@ -35,6 +35,18 @@ def _get_connection(reuse_connection=False) -> sqlite3.Connection:
         return sqlite3.connect(DB_PATH)
 
 
+def _perform_maintenance(cur: sqlite3.Cursor, mode: str):
+    if mode == "off":
+        return
+    if mode in ["basic", "full"]:
+        cur.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+        cur.execute('PRAGMA optimize')
+    else:
+        logger.error(f"Unknown UNMANIC_SQLITE_MAINTENANCE mode '{mode}'")
+    if mode == "full":
+        cur.execute('VACUUM')
+
+
 def init(tables: list[str]):
     if not os.path.exists(os.path.dirname(DB_PATH)):
         os.makedirs(os.path.dirname(DB_PATH))
@@ -60,7 +72,14 @@ def init(tables: list[str]):
                 cur.execute(f'ALTER TABLE {table} ADD COLUMN last_update INTEGER NOT NULL DEFAULT 0')
                 cur.execute(f'UPDATE {table} SET last_update = mtime')
                 cur.execute(f'CREATE INDEX IF NOT EXISTS idx_{table}_last_update ON {table} (last_update)')
+
+        maintenance_mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
+        if not maintenance_mode:
+            maintenance_mode = "basic"
+        _perform_maintenance(cur, maintenance_mode)
+
         conn.commit()
+    conn.close()
 
 
 def get(table: str, path: str, mtime: int = None, reuse_connection=False) -> Optional[dict]:
@@ -92,11 +111,11 @@ def exists(table: str, path: str, mtime: int = None) -> bool:
 
 
 def put(table: str, path: str, mtime: int, data: dict, reuse_connection=False) -> None:
-    conn = _get_connection(reuse_connection=reuse_connection)
     last_update = int(time.time())
     data = json.dumps(data)
+    conn = _get_connection(reuse_connection=reuse_connection)
+    cur = conn.cursor()
     with conn:
-        cur = conn.cursor()
         cur.execute(f'''
                     INSERT INTO {table} (path, mtime, last_update, data)
                     VALUES (?, ?, ?, ?)
