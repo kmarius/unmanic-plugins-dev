@@ -257,23 +257,26 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         mtime = int(os.path.getmtime(path))
         quiet = settings.get_setting("quiet_caching")
 
-        for p in PROVIDERS:
-            if not settings.get_setting(p.setting_name_enabled()):
+        for provider in PROVIDERS:
+            if not settings.get_setting(provider.setting_name_enabled()):
                 continue
 
-            res = cache.get(p.name, path, mtime, reuse_connection=True)
+            if not provider.is_admissible(path):
+                continue
+
+            res = cache.get(provider.name, path, mtime, reuse_connection=True)
 
             if res is not None:
                 if not quiet:
-                    logger.info(f"Cached {p.name} data found - {path}")
+                    logger.info(f"Cached {provider.name} data found - {path}")
             else:
-                logger.info(f"No cached {p.name} data found, refreshing - {path}")
-                res = p.run_prog(path)
+                logger.info(f"No cached {provider.name} data found, refreshing - {path}")
+                res = provider.run_prog(path)
                 if res is not None:
-                    cache.put(p.name, path, mtime, res, reuse_connection=True)
+                    cache.put(provider.name, path, mtime, res, reuse_connection=True)
 
             if res is not None:
-                data["shared_info"][p.name] = res
+                data["shared_info"][provider.name] = res
 
 
 def on_postprocessor_task_results(data: TaskResultData, **kwargs):

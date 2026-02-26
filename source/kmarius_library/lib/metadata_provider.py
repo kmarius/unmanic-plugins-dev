@@ -1,5 +1,6 @@
 import json
 import subprocess
+import os
 from typing import Optional
 
 from .ffmpeg.probe import Probe
@@ -16,6 +17,10 @@ class MetadataProvider:
     @staticmethod
     def run_prog(path: str) -> Optional[dict]:
         raise NotImplementedError()
+
+    @staticmethod
+    def is_admissible(selfpath: str) -> bool:
+        return True
 
     @classmethod
     def setting_name_enabled(cls):
@@ -63,6 +68,11 @@ class MP4BoxProvider(MetadataProvider):
         except Exception as e:
             logger.error(e)
             return None
+
+    @staticmethod
+    def is_admissible(path: str) -> bool:
+        ext = os.path.splitext(path)[1][1:].lower()
+        return ext == "mp4"
 
 
 PROVIDERS = [
