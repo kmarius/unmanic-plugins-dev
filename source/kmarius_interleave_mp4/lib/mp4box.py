@@ -89,11 +89,13 @@ class MP4Box:
     def parse_progress(line: str):
         """Parse output of MP4Box interleaving command."""
         percent = 100
-
-        # ISO File Writing: |=================== | (99/100)
-        match = re.search(r'\((\d+)/100\)', line)
-        if match:
-            percent = int(match.group(1))
+        if "Interleave" in line:
+            percent = 0
+        else:
+            # ISO File Writing: |=================== | (99/100)
+            match = re.search(r'\((\d+)/100\)', line)
+            if match:
+                percent = int(match.group(1))
 
         return {
             'percent': percent
