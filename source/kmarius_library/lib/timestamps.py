@@ -32,7 +32,11 @@ def _check_column_exists(conn: sqlite3.Connection, table_name: str, column_name:
     return any(column[1] == column_name for column in columns)
 
 
-def _perform_maintenance(cur: sqlite3.Cursor, mode: str):
+def _perform_maintenance(cur: sqlite3.Cursor):
+    mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
+    if not mode:
+        mode = "basic"
+
     if mode == "off":
         return
     if mode in ["basic", "full"]:
@@ -83,13 +87,9 @@ def init():
 
         cur.execute('CREATE INDEX IF NOT EXISTS idx_last_update ON timestamps (last_update)')
 
-        maintenance_mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
-        if not maintenance_mode:
-            maintenance_mode = "basic"
-        _perform_maintenance(cur, maintenance_mode)
+        _perform_maintenance(cur)
 
         conn.commit()
-    conn.close()
 
 
 def put(library_id: int, path: str, mtime: int):

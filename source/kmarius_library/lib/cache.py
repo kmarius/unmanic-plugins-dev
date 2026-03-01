@@ -10,8 +10,7 @@ from . import PLUGIN_ID, logger
 
 # TODO: function to clean up orphans
 
-DB_PATH = os.path.join(common.get_home_dir(), ".unmanic",
-                       "userdata", PLUGIN_ID, "metadata.db")
+DB_PATH = os.path.join(common.get_home_dir(), ".unmanic", "userdata", PLUGIN_ID, "metadata.db")
 
 local = threading.local()
 
@@ -34,7 +33,11 @@ def _get_connection(reuse_connection=False) -> sqlite3.Connection:
         return sqlite3.connect(DB_PATH)
 
 
-def _perform_maintenance(cur: sqlite3.Cursor, mode: str):
+def _perform_maintenance(cur: sqlite3.Cursor):
+    mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
+    if not mode:
+        mode = "basic"
+
     if mode == "off":
         return
     if mode in ["basic", "full"]:
@@ -69,10 +72,7 @@ def init(tables: list[str]):
 
             cur.execute(f'CREATE INDEX IF NOT EXISTS idx_{table}_last_update ON {table} (last_update)')
 
-        maintenance_mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
-        if not maintenance_mode:
-            maintenance_mode = "basic"
-        _perform_maintenance(cur, maintenance_mode)
+        _perform_maintenance(cur)
 
         conn.commit()
     conn.close()

@@ -61,6 +61,7 @@
                 <option value="process">Process</option>
                 <option value="update-timestamp">Update Timestamp</option>
                 <option value="reset-timestamp">Reset Timestamp</option>
+                <option value="reset-test">Reset Timestamp & Test</option>
                 </select>`;
 
         const actions = ENABLE_EXTENDED_ACTIONS ? actions_extended : actions_default;
@@ -250,6 +251,23 @@
                         body: JSON.stringify(payload)
                     });
                     fakeResetTimestamps(nodes);
+                    break;
+                case "reset-test":
+                    await fetch(buildUrl('/timestamp/reset'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    fakeResetTimestamps(nodes);
+                    await fetch(buildUrl('/test'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
                     break;
                 default:
                     console.log(`unrecognized action: ${operation}`);
