@@ -1,9 +1,14 @@
 import logging
 from typing import Dict
 
+from kmarius_library.lib import cache
+from kmarius_library.lib.metadata_provider import PROVIDERS
+
 PLUGIN_ID = "kmarius_library"
 
 logger = logging.getLogger(f"Unmanic.Plugin.{PLUGIN_ID}")
+
+cache.init([p.name for p in PROVIDERS])
 
 # this dict holds all files with their current timestamp (per-library) that were sent down the file-test pipeline
 # we remove them, once a file is added to the pending queue. Of all files that remain

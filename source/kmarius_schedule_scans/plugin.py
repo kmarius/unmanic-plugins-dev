@@ -1,7 +1,7 @@
 import re
 import threading
 import schedule
-from typing import Optional, override, cast
+from typing import Optional, override, cast, TypeVar, Type, ParamSpec
 import pytz
 from datetime import datetime
 
@@ -14,12 +14,15 @@ from kmarius_schedule_scans.lib import logger, PLUGIN_ID
 
 THREAD_NAME = PLUGIN_ID.replace("_", "-")
 
+T = TypeVar('T')
+P = ParamSpec('P')
+
 
 class StoppableThread(threading.Thread):
     """Thread class with a stop() method. The thread itself has to check
     regularly for the stopped() condition."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: P.args, **kwargs: P.kwargs):
         super(StoppableThread, self).__init__(*args, **kwargs)
         self._stop_event = threading.Event()
 
@@ -97,19 +100,15 @@ class Settings(PluginSettings):
         return form_settings
 
 
-def _get_thread(clazz: type) -> Optional[threading.Thread]:
+def _get_thread(clazz: Type[T]) -> Optional[T]:
     for thread in threading.enumerate():
-        if type(thread) == clazz:
+        if type(thread) is clazz:
             return thread
     return None
 
 
-def _get_library_scanner() -> Optional[LibraryScannerManager]:
-    return _get_thread(LibraryScannerManager)
-
-
 def _start_library_scan(library_id: int):
-    scanner = _get_library_scanner()
+    scanner = _get_thread(LibraryScannerManager)
     if scanner is None:
         logger.error("Could not get library scanner thread")
         return
@@ -129,7 +128,7 @@ def _start_library_scan(library_id: int):
     scanner.scan_library_path(library.get_name(), library.get_path(), library_id)
 
 
-def _convert_time(time_str, original_tz_str, target_tz_str):
+def _convert_time(time_str: str, original_tz_str: str, target_tz_str: str) -> str:
     original_tz = pytz.timezone(original_tz_str)
     target_tz = pytz.timezone(target_tz_str)
     naive_dt = datetime.strptime(time_str, "%H:%M")
@@ -188,6 +187,7 @@ def _scheduler_main():
 
                 seconds_str = f"{seconds} second{"s" if seconds != 1 else ""}"
                 logger.info(f"Next action in {hours_str}{minutes_str}{seconds_str}")
+
             thread.sleep(delay)
 
         if not plugins_handler.get_plugin_list_filtered_and_sorted(plugin_id=PLUGIN_ID, length=1):
@@ -200,8 +200,7 @@ def _restart_scheduler_thread():
         if thread.name == THREAD_NAME and hasattr(thread, "stop"):
             thread.stop()
             thread.join()
-    StoppableThread(target=_scheduler_main,
-                    name=THREAD_NAME, daemon=True).start()
+    StoppableThread(target=_scheduler_main, name=THREAD_NAME, daemon=True).start()
 
 
 logger.info("Plugin (re-)loaded.")

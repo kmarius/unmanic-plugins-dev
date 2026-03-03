@@ -12,9 +12,6 @@ from kmarius_library.lib.panel import Panel
 from kmarius_library.lib.types import *
 from kmarius_library.lib.timestamps import reset_oldest
 
-cache.init([p.name for p in PROVIDERS])
-timestamps.init()
-
 
 class Settings(PluginSettings):
     @staticmethod
@@ -30,13 +27,13 @@ class Settings(PluginSettings):
             "caching_enabled": True,
         }
         form_settings = {
-            "ignored_paths": {
-                "input_type": "textarea",
-                "label": "Regular expression patterns of paths to ignore - one per line"
-            },
             "extensions": {
                 "label": "Search library only for extensions",
-                "description": "A comma separated list of allowed file extensions."
+                "description": "A comma separated list of allowed file extensions.",
+            },
+            "ignored_paths": {
+                "label": "Regular expression patterns of paths to ignore - one per line",
+                "input_type": "textarea",
             },
             "incremental_scan_enabled": {
                 "label": "Enable incremental scans (ignore unchanged files)",
@@ -89,9 +86,14 @@ class Settings(PluginSettings):
         })
 
         settings.update({
+            "header_panel": "",
             "hide_empty": False,
         })
         form_settings.update({
+            "header_panel": {
+                "label": "Panel settings",
+                "input_type": "section_subheader",
+            },
             "hide_empty": {
                 "label": "Hide empty directories",
                 "description": "Hide directories e.g. if all its contents are filtered. This setting only effects the data panel.",
@@ -150,11 +152,10 @@ class CombinedSettings:
         if match is None:
             logger.error(f"CombinedSettings: unexpected key: {key}")
             return None
-        library_id = match.group(1)
-        new_key = match.group(2)
+        library_id, key = match.groups()
         if library_id not in self.settings:
             self.settings[library_id] = Settings(library_id=library_id)
-        return self.settings[library_id].get_setting(new_key)
+        return self.settings[library_id].get_setting(key)
 
     def get_allowed_extensions(self, library_id: int) -> list[str]:
         if library_id not in self._allowed_extensions:
@@ -206,11 +207,11 @@ def update_cached_metadata(providers: list[MetadataProvider], path: str):
             if cache.exists(p.name, path, mtime):
                 continue
 
-            res = p.run_prog(path)
+            metadata = p.run_prog(path)
 
-            if res is not None:
-                cache.put(p.name, path, mtime, res)
+            if metadata is not None:
                 logger.info(f"Updating {p.name} data - {path}")
+                cache.put(p.name, path, mtime, metadata)
     except Exception as e:
         logger.error(e)
 
@@ -221,11 +222,6 @@ def update_timestamp(library_id: int, path: str):
         timestamps.put(library_id, path, mtime)
     except Exception as e:
         logger.error(e)
-
-
-def is_file_unchanged(library_id: int, path: str, mtime: int) -> bool:
-    stored_timestamp = timestamps.get(library_id, path, reuse_connection=True)
-    return stored_timestamp == mtime
 
 
 def on_library_management_file_test(data: FileTestData, **kwargs):
@@ -243,7 +239,12 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
 
     if settings.get_setting("incremental_scan_enabled"):
         mtime = int(os.path.getmtime(path))
-        if is_file_unchanged(library_id, path, mtime):
+        timestamp = timestamps.get(library_id, path, reuse_connection=True)
+        if timestamp is None:
+            # add dummy entry, this file is part of the library, and we want it in the database
+            # before emit_scan_complete is called
+            timestamps.put(library_id, path, 0, reuse_connection=True)
+        elif timestamp == mtime:
             if not settings.get_setting("quiet_incremental_scan"):
                 data["issues"].append({
                     'id': PLUGIN_ID,
@@ -260,23 +261,22 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         for provider in PROVIDERS:
             if not settings.get_setting(provider.setting_name_enabled()):
                 continue
-
             if not provider.is_admissible(path):
                 continue
 
-            res = cache.get(provider.name, path, mtime, reuse_connection=True)
+            metadata = cache.get(provider.name, path, mtime, reuse_connection=True)
 
-            if res is not None:
+            if metadata is not None:
                 if not quiet:
                     logger.info(f"Cached {provider.name} data found - {path}")
             else:
                 logger.info(f"No cached {provider.name} data found, refreshing - {path}")
-                res = provider.run_prog(path)
-                if res is not None:
-                    cache.put(provider.name, path, mtime, res, reuse_connection=True)
+                metadata = provider.run_prog(path)
+                if metadata is not None:
+                    cache.put(provider.name, path, mtime, metadata, reuse_connection=True)
 
-            if res is not None:
-                data["shared_info"][provider.name] = res
+            if metadata is not None:
+                data["shared_info"][provider.name] = metadata
 
 
 def on_postprocessor_task_results(data: TaskResultData, **kwargs):
@@ -353,8 +353,6 @@ def render_plugin_api(data: PluginApiData, **kwargs):
 
 
 def emit_scan_start(data: dict, **kwargs):
-    logger.info(f"emit_scan_start {data}")
-
     library_id = data["library_id"]
     settings = Settings(library_id=library_id)
 
@@ -364,8 +362,8 @@ def emit_scan_start(data: dict, **kwargs):
     frac = float(percent) / 100
 
     if reset_old_timestamps:
-        items = reset_oldest(library_id, frac)
-        logger.info(f"reset {items}")
+        num = reset_oldest(library_id, frac)
+        logger.info(f"Reset {num} oldest timestamps")
 
     # when not resetting timestamps we must set last_update, otherwise we check the same old elements over and over
     set_last_update = not reset_old_timestamps
@@ -375,6 +373,8 @@ def emit_scan_start(data: dict, **kwargs):
 def emit_file_queued(data: dict, **kwargs):
     library_id = data["library_id"]
     path = data["file_path"]
+    # remove file from the list of tested files; we update these at the end of the scan,
+    # this one is updated after processing
     remove_file_tested(library_id, path)
 
 

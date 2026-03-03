@@ -142,11 +142,16 @@ PATCHES = [
 class Settings(PluginSettings):
     settings = {
         "pause_workers_during_scan": False,
+        "enable_sqlite3_debug": False,
     }
     form_settings = {
         "pause_workers_during_scan": {
             "label": "Pause workers during scans.",
             "description": "Requires emit_scan_start and emit_scan_complete."
+        },
+        "enable_sqlite3_debug": {
+            'label': 'Patch sqlite3.connect to show debug information',
+            'description': 'Restart required.',
         },
     }
 

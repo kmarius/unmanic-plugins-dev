@@ -5,7 +5,7 @@ import re
 import threading
 import traceback
 import uuid
-from typing import Optional, Collection, Dict
+from typing import Optional, Collection, Dict, TypeVar, Type
 
 from unmanic.libs.filetest import FileTesterThread
 from unmanic.libs.frontend_push_messages import FrontendPushMessages
@@ -32,15 +32,14 @@ def critical(f):
     return wrapped
 
 
-def _get_thread(clazz: type) -> Optional[threading.Thread]:
+T = TypeVar('T')
+
+
+def _get_thread(clazz: Type[T]) -> Optional[T]:
     for thread in threading.enumerate():
-        if type(thread) == clazz:
+        if type(thread) is clazz:
             return thread
     return None
-
-
-def _get_libraryscanner() -> Optional[LibraryScannerManager]:
-    return _get_thread(LibraryScannerManager)
 
 
 def _get_library_paths() -> Dict[int, str]:
@@ -72,7 +71,7 @@ def _test_files_in_lib(library_id: int, items: Collection[str]):
     if num_files == 0:
         return
 
-    scanner = _get_libraryscanner()
+    scanner = _get_thread(LibraryScannerManager)
     num_threads = scanner.settings.get_concurrent_file_testers()
 
     # pre-fill queue

@@ -2,7 +2,7 @@ import sqlite3
 import os
 import threading
 import time
-from typing import Mapping, Tuple, Callable
+from typing import Dict, Tuple, Callable, Collection
 
 from unmanic.libs import common
 
@@ -37,20 +37,22 @@ def _perform_maintenance(cur: sqlite3.Cursor):
     if not mode:
         mode = "basic"
 
+    if mode not in ["off", "basic", "full"]:
+        logger.error(f"Unknown UNMANIC_SQLITE_MAINTENANCE mode '{mode}'")
+        return
+
     if mode == "off":
         return
-    if mode in ["basic", "full"]:
-        cur.execute('PRAGMA wal_checkpoint(TRUNCATE)')
-        cur.execute('PRAGMA optimize')
-    else:
-        logger.error(f"Unknown UNMANIC_SQLITE_MAINTENANCE mode '{mode}'")
+
+    cur.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+    cur.execute('PRAGMA optimize')
     if mode == "full":
         cur.execute('VACUUM')
 
 
 # check the database table, create it if it doesn't exist.
 # migration for the addition of a column consists of dropping the table
-def init():
+def _init():
     if not os.path.exists(os.path.dirname(DB_PATH)):
         os.makedirs(os.path.dirname(DB_PATH))
 
@@ -63,8 +65,7 @@ def init():
             logger.info(f"Migrating database from kmarius_incremental_scan_db")
             os.rename(old_db, DB_PATH)
 
-    conn = _get_connection()
-    with conn:
+    with _get_connection() as conn:
         cur = conn.cursor()
         if not _check_column_exists(conn, "timestamps", "library_id"):
             logger.info("Table 'timestamps' does not exists or is missing the 'library_id' column. (Re-)creating...")
@@ -89,20 +90,19 @@ def init():
 
         _perform_maintenance(cur)
 
-        conn.commit()
+
+_init()
 
 
-def put(library_id: int, path: str, mtime: int):
+def put(library_id: int, path: str, mtime: int, reuse_connection=False):
     now = int(time.time())
-    conn = _get_connection()
-    with conn:
+    with _get_connection(reuse_connection) as conn:
         cur = conn.cursor()
         cur.execute('''
                     INSERT INTO timestamps (library_id, path, mtime, last_update)
                     VALUES (?, ?, ?, ?)
                     ON CONFLICT(library_id, path) DO UPDATE SET (mtime, last_update) = (EXCLUDED.mtime, EXCLUDED.last_update)
                     ''', (library_id, path, mtime, now))
-        conn.commit()
 
 
 def put_many(values: list[Tuple[int, str, int]]):
@@ -111,33 +111,30 @@ def put_many(values: list[Tuple[int, str, int]]):
         return
     now = int(time.time())
     values = [value + (now,) for value in values]
-    conn = _get_connection()
-    cur = conn.cursor()
-    with conn:
+    with _get_connection() as conn:
+        cur = conn.cursor()
         cur.executemany('''
                         INSERT INTO timestamps (library_id, path, mtime, last_update)
                         VALUES (?, ?, ?, ?)
                         ON CONFLICT(library_id, path)
                             DO UPDATE SET (mtime, last_update) = (EXCLUDED.mtime, EXCLUDED.last_update)
                         ''', values)
-        conn.commit()
 
 
 def get(library_id: int, path: str, reuse_connection=False):
-    conn = _get_connection(reuse_connection)
-    cur = conn.cursor()
-    cur.execute("SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?", (library_id, path))
-    row = cur.fetchone()
-    mtime = row[0] if row else None
-    return mtime
+    with _get_connection(reuse_connection) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?", (library_id, path))
+        row = cur.fetchone()
+        mtime = row[0] if row else None
+        return mtime
 
 
 # we only allow batch loading with fixed library_id
 def get_many(library_id: int, paths: list[str]):
-    conn = _get_connection()
-    cur = conn.cursor()
-    with conn:
-        mtimes = []
+    mtimes = []
+    with _get_connection() as conn:
+        cur = conn.cursor()
         # I tested this with a temp relation instead of a loop and int was faster at > 15 items per query
         for path in paths:
             cur.execute(
@@ -147,70 +144,55 @@ def get_many(library_id: int, paths: list[str]):
     return mtimes
 
 
-def reset_oldest(library_id: int, fraction: float) -> list[str]:
+def reset_oldest(library_id: int, fraction: float) -> int:
     """Does not modify last_update"""
     if fraction <= 0:
-        return []
-    conn = _get_connection()
-    cur = conn.cursor()
-    with conn:
-        cur.execute(f'SELECT count(*) FROM timestamps WHERE library_id = ?', (library_id,))
-        num_entries = cur.fetchone()[0]
+        return 0
+    with _get_connection() as conn:
+        cur = conn.cursor()
 
-        limit = int(fraction * num_entries)
-        limit = max(1, min(limit, num_entries))
+        [[num_rows]] = cur.execute(f'SELECT COUNT(*) FROM timestamps WHERE library_id = ?', (library_id,))
+        limit = max(1, int(fraction * num_rows))
 
-        cur.execute('''
-                    SELECT path, library_id
-                    FROM timestamps
-                    WHERE library_id = ?
-                    ORDER BY last_update ASC
-                    LIMIT ?
-                    ''', (library_id, limit))
-        rows = cur.fetchall()
         cur.execute(
             f'''
             UPDATE timestamps SET mtime = 0 
-            WHERE rowid IN (SELECT rowid FROM timestamps WHERE library_id = ? ORDER BY last_update ASC LIMIT ?)
+            WHERE rowid IN (SELECT rowid FROM timestamps WHERE library_id = ? ORDER BY last_update LIMIT ?)
             ''',
             (library_id, limit))
-        conn.commit()
-        return rows
+
+        return cur.rowcount
 
 
-def get_all_paths(library_id: int = None) -> list[str]:
-    conn = _get_connection()
-    cur = conn.cursor()
-    if library_id is not None:
-        cur.execute('''
-                    SELECT path
-                    FROM timestamps
-                    WHERE library_id = ?
-                    ''', (library_id,))
-    else:
-        cur.execute('SELECT DISTINCT path FROM timestamps')
-    paths = [path[0] for path in cur.fetchall()]
-    conn.close()
-    return paths
+def get_all_paths(library_id: int = None) -> Collection[str]:
+    with _get_connection() as conn:
+        cur = conn.cursor()
+        if library_id is not None:
+            cur.execute('''
+                        SELECT path
+                        FROM timestamps
+                        WHERE library_id = ?
+                        ''', (library_id,))
+        else:
+            cur.execute('SELECT DISTINCT path FROM timestamps')
+        return [path for path, in cur]
 
 
 # we directly construct the map here instead of returning a list and creating the map from that
-def get_all(library_id: int) -> Mapping[str, int]:
-    conn = _get_connection()
-    cur = conn.cursor()
-    cur.execute('''
-                SELECT path, mtime
-                FROM timestamps
-                WHERE library_id = ?
-                ''', (library_id,))
-    return dict(cur)
+def get_all(library_id: int) -> Dict[str, int]:
+    with _get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''
+                    SELECT path, mtime
+                    FROM timestamps
+                    WHERE library_id = ?
+                    ''', (library_id,))
+        return dict(cur)
 
 
 def remove_paths(library_id: int, paths: list[str]):
-    conn = _get_connection()
-    cur = conn.cursor()
-    # one by one is good enough for now, I don't think we can use CTEs from python
-    with conn:
+    with _get_connection() as conn:
+        cur = conn.cursor()
         for path in paths:
             cur.execute('''
                         DELETE
@@ -218,39 +200,32 @@ def remove_paths(library_id: int, paths: list[str]):
                         WHERE library_id = ?
                           AND path = ?
                         ''', (library_id, path))
-        conn.commit()
 
 
 def check_oldest(library_id: int, fraction: float, callback: Callable[[str], bool], set_last_update=True) -> int:
-    conn = _get_connection()
-    cur = conn.cursor()
+    with _get_connection() as conn:
+        cur = conn.cursor()
+        [[num_rows]] = cur.execute('SELECT COUNT(*) FROM timestamps WHERE library_id = ?', (library_id,))
+        limit = max(1, int(fraction * num_rows))
 
-    cur.execute('SELECT count(*) FROM timestamps WHERE library_id = ?', (library_id,))
-    num_entries = cur.fetchone()[0]
+        cur.execute('''
+                    SELECT path, rowid
+                    FROM timestamps
+                    WHERE library_id = ?
+                    ORDER BY last_update
+                    LIMIT ?
+                    ''', (library_id, limit))
 
-    limit = int(fraction * num_entries)
-    limit = max(1, min(limit, num_entries))
+        delete_rowids = []
+        keep_rowids = []
+        for path, rowid in cur:
+            if callback(path):
+                keep_rowids.append((int(time.time()), rowid))
+            else:
+                delete_rowids.append((rowid,))
 
-    cur.execute('''
-                SELECT path, rowid
-                FROM timestamps
-                WHERE library_id = ?
-                ORDER BY last_update ASC
-                LIMIT ?
-                ''', (library_id, limit,))
-
-    delete_row_ids = []
-    keep_row_ids = []
-    for row in cur:
-        if not callback(row[0]):
-            delete_row_ids.append((row[1],))
-        elif set_last_update:
-            keep_row_ids.append((int(time.time()), row[1]))
-
-    with conn:
-        cur.executemany('DELETE FROM timestamps WHERE rowid = ?', delete_row_ids)
         if set_last_update:
-            cur.executemany('UPDATE timestamps SET last_update = ? WHERE rowid = ?', keep_row_ids)
-        conn.commit()
+            cur.executemany('UPDATE timestamps SET last_update = ? WHERE rowid = ?', keep_rowids)
+        cur.executemany('DELETE FROM timestamps WHERE rowid = ?', delete_rowids)
 
-    return len(delete_row_ids)
+        return cur.rowcount
