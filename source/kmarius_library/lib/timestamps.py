@@ -8,8 +8,7 @@ from unmanic.libs import common
 
 from . import logger, PLUGIN_ID
 
-DB_PATH = os.path.join(common.get_home_dir(), ".unmanic",
-                       "userdata", PLUGIN_ID, "timestamps.db")
+DB_PATH = os.path.join(common.get_home_dir(), ".unmanic", "userdata", PLUGIN_ID, "timestamps.db")
 
 _local = threading.local()
 
@@ -105,7 +104,7 @@ def put(library_id: int, path: str, mtime: int, reuse_connection=False):
                     ''', (library_id, path, mtime, now))
 
 
-def put_many(values: list[Tuple[int, str, int]]):
+def put_many(values: Collection[Tuple[int, str, int]]):
     """list of tuples: (library_id, path, mtime)"""
     if not values:
         return
@@ -190,21 +189,22 @@ def get_all(library_id: int) -> Dict[str, int]:
         return dict(cur)
 
 
-def remove_paths(library_id: int, paths: list[str]):
+def remove_paths(library_id: int, paths: Collection[str]):
+    parameters = [(library_id, path) for path in paths]
     with _get_connection() as conn:
         cur = conn.cursor()
-        for path in paths:
-            cur.execute('''
+        cur.executemany('''
                         DELETE
                         FROM timestamps
                         WHERE library_id = ?
                           AND path = ?
-                        ''', (library_id, path))
+                        ''', parameters)
 
 
 def check_oldest(library_id: int, fraction: float, callback: Callable[[str], bool], set_last_update=True) -> int:
     with _get_connection() as conn:
         cur = conn.cursor()
+
         [[num_rows]] = cur.execute('SELECT COUNT(*) FROM timestamps WHERE library_id = ?', (library_id,))
         limit = max(1, int(fraction * num_rows))
 

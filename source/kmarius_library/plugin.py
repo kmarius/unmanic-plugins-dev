@@ -12,6 +12,8 @@ from kmarius_library.lib.panel import Panel
 from kmarius_library.lib.types import *
 from kmarius_library.lib.timestamps import reset_oldest
 
+cache.init([p.name for p in PROVIDERS])
+
 
 class Settings(PluginSettings):
     @staticmethod

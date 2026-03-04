@@ -3,7 +3,7 @@ import os
 import json
 import threading
 import time
-from typing import Optional, Callable
+from typing import Optional, Callable, Collection
 
 from unmanic.libs import common
 from . import PLUGIN_ID, logger
@@ -117,18 +117,20 @@ def put(table: str, path: str, mtime: int, data: dict, reuse_connection=False) -
                     ''', (path, mtime, last_update, data))
 
 
-def get_all_paths(table: str) -> list[str]:
+# resets timestamp only
+def reset(table: str, path: str) -> int:
     with _get_connection() as conn:
         cur = conn.cursor()
-        cur.execute(f'SELECT path FROM {table}')
-        return [path for path, in cur]
+        cur.execute(f'UPDATE {table} SET (mtime, last_update) = (0, 0) WHERE path = ?', (path,))
+        return cur.rowcount
 
 
-def remove_paths(table: str, paths: list[str]):
+# resets timestamps only
+def reset_many(table: str, paths: Collection[str]) -> int:
     with _get_connection() as conn:
         cur = conn.cursor()
-        for path in paths:
-            cur.execute(f'DELETE FROM {table} WHERE path = ?', (path,))
+        cur.executemany(f'UPDATE {table} SET (mtime, last_update) = (0, 0) WHERE path = ?', [(path,) for path in paths])
+        return cur.rowcount
 
 
 def check_oldest(table: str, fraction: float, callback: Callable[[str], bool]) -> int:

@@ -64,7 +64,7 @@ class MP4BoxProvider(MetadataProvider):
     @staticmethod
     def run_prog(path: str) -> Optional[dict]:
         try:
-            return MP4Box.probe(path)
+            return MP4Box.probe(path, logger=logger)
         except Exception as e:
             logger.error(e)
             return None

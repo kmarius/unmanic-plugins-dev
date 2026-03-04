@@ -66,6 +66,7 @@
                 <option value="process">Process</option>
                 <option value="update-timestamp">Update Timestamp</option>
                 <option value="reset-timestamp">Reset Timestamp</option>
+                <option value="reset-metadata-timestamp">Reset Metadata</option>
                 <option value="reset-test">Reset Timestamp & Test</option>
                 </select>`;
 
@@ -256,6 +257,15 @@
                         body: JSON.stringify(payload)
                     });
                     fakeResetTimestamps(nodes);
+                    break;
+                case "reset-metadata-timestamp":
+                    await fetch(buildUrl('/metadata/reset'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
                     break;
                 case "reset-test":
                     await fetch(buildUrl('/timestamp/reset'), {

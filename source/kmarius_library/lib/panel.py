@@ -3,6 +3,7 @@ import os
 import queue
 import re
 import threading
+import time
 import traceback
 import uuid
 from typing import Optional, Collection, Dict, TypeVar, Type
@@ -12,7 +13,8 @@ from unmanic.libs.frontend_push_messages import FrontendPushMessages
 from unmanic.libs.libraryscanner import LibraryScannerManager
 from unmanic.libs.unmodels import Libraries
 
-from . import timestamps, logger, get_files_tested
+from . import timestamps, logger, get_files_tested, cache
+from .metadata_provider import PROVIDERS
 from .types import *
 
 
@@ -262,7 +264,7 @@ class Panel:
     def _process_files(self, items: list[dict]):
         library_paths = _get_library_paths()
 
-        scanner = _get_libraryscanner()
+        scanner = _get_thread(LibraryScannerManager)
         if scanner is None:
             raise Exception(f"Could not get LibraryScanner thread")
 
@@ -387,10 +389,30 @@ class Panel:
                     distinct.add((library_id, p, 0))
             else:
                 distinct.add((library_id, path, 0))
-        values = list(distinct)
 
-        timestamps.put_many(values)
-        logger.info(f"Reset {len(values)} timestamps")
+        timestamps.put_many(distinct)
+        logger.info(f"Reset {len(distinct)} timestamps")
+
+    def _reset_metadata_timestamps(self, items: list[dict]):
+        library_paths = _get_library_paths()
+        distinct = set()
+        for item in items:
+            library_id = item["library_id"]
+            path = item["path"]
+
+            if not _validate_path(path, library_paths[library_id]):
+                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
+
+            if os.path.isdir(path):
+                for p in self._walk_library(library_id, path):
+                    distinct.add(p)
+            else:
+                distinct.add(path)
+
+        count = 0
+        for provider in PROVIDERS:
+            count += cache.reset_many(provider.name, distinct)
+        logger.info(f"Reset {count} metadata items")
 
     def _update_timestamps(self, items: list[dict]):
         library_paths = _get_library_paths()
@@ -486,32 +508,35 @@ class Panel:
             body = json.loads(data["body"].decode('utf-8'))
 
         try:
-            match data["path"]:
-                case "/test":
+            match data["path"], data['method']:
+                case "/test", 'POST':
                     self._test_files(_unpack_items(body))
-                case '/process':
+                case '/process', 'POST':
                     self._process_files(_unpack_items(body))
-                case '/subtree':
+                case '/subtree', 'GET':
                     data["content"] = self._get_subtree(
                         int(arguments["library_id"][0]),
                         arguments["path"][0],
                         arguments["title"][0]
                     )
-                case "/libraries":
+                case "/libraries", 'GET':
                     data["content"] = self._get_libraries()
-                case "/timestamp/reset":
+                case "/timestamp/reset", 'POST':
                     self._reset_timestamps(_unpack_items(body))
-                case "/timestamp/update":
+                case "/timestamp/update", 'POST':
                     self._update_timestamps(_unpack_items(body))
-                case "/prune":
+                case "/metadata/reset", 'POST':
+                    self._reset_metadata_timestamps(_unpack_items(body))
+                case "/prune", 'POST':
                     threading.Thread(target=self._prune_database,
                                      args=(body,),
                                      daemon=True).start()
-                case _:
+                case path, method:
                     data["content"] = {
                         "success": False,
-                        "error": f"unknown path: {data['path']}",
+                        "error": f"unknown path: {method} {path}",
                     }
+                    data["status"] = 404
 
         except Exception as e:
             trace = traceback.format_exc()
@@ -521,3 +546,4 @@ class Panel:
                 "error": str(e),
                 "trace": trace,
             }
+            data['status'] = 503
