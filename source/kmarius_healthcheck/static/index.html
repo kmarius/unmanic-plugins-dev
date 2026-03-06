@@ -43,18 +43,16 @@
         html.classList.add(urlParams.get('theme'));
         html.setAttribute('data-bs-theme', urlParams.get('theme'));
 
-        // watches localstorage for changes on the 'theme' key by quasar
-        // changes theme with a tiny delay, but better than nothing
-        // the downside is that it will also fire for other tabs which have not registered the theme change
-        // works once the key has been stored
-        window.addEventListener('storage', function (e) {
-                if (e.key === 'theme') {
-                    let theme = e.newValue.replace('__q_strn|', '');
-                    document.querySelector('html')
-                        .classList.replace(theme === 'light' ? 'dark' : 'light', theme);
-                }
-            }, false
-        );
+        // observe theme changes
+        let observer = new MutationObserver(function (e) {
+            let theme = parent.document.body.classList.contains('body--dark') ? 'dark' : 'light';
+            document.querySelector('html')
+                .classList.replace(theme === 'light' ? 'dark' : 'light', theme);
+        });
+        observer.observe(parent.document.body, {
+            attributes: true,
+            attributeFilter: ['class'],
+        });
 
         let match = window.location.href.match(/\/unmanic\/panel\/([^\/]+)\//);
         if (match == null)
@@ -97,7 +95,7 @@
             return buttons;
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', function () {
 
             // Setup - add a text input to each footer cell
             // we only allow filtering for name and issues, the first two columns
