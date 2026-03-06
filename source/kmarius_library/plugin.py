@@ -1,12 +1,13 @@
 import os
 import re
+import time
 from typing import override
 
 from unmanic.libs.library import Libraries, Library
 from unmanic.libs.unplugins.settings import PluginSettings
 
 from kmarius_library.lib import cache, timestamps, logger, PLUGIN_ID, get_files_tested, add_file_tested, \
-    remove_file_tested
+    remove_file_tested, add_file_seen, get_files_seen
 from kmarius_library.lib.metadata_provider import MetadataProvider, PROVIDERS
 from kmarius_library.lib.panel import Panel
 from kmarius_library.lib.types import *
@@ -240,6 +241,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         return
 
     if settings.get_setting("incremental_scan_enabled"):
+        add_file_seen(library_id, path)
         mtime = int(os.path.getmtime(path))
         timestamp = timestamps.get(library_id, path, reuse_connection=True)
         if timestamp is None:
@@ -341,8 +343,8 @@ def _prune_metadata(fraction=1.0):
     all_paths = set(timestamps.get_all_paths())
 
     num_pruned = 0
-    for p in PROVIDERS:
-        num_pruned += cache.check_oldest(p.name, fraction, lambda path: path in all_paths)
+    for provider in PROVIDERS:
+        num_pruned += cache.check_oldest(provider.name, fraction, lambda path: path in all_paths)
     logger.info(f"Pruned {num_pruned} metadata items")
 
 
@@ -384,17 +386,31 @@ def emit_scan_complete(data: dict, **kwargs):
     library_id = data["library_id"]
     settings = Settings(library_id=library_id)
 
-    # all files that were tested but not queued
-    # need to have their timestamps updated
     if settings.get_setting("incremental_scan_enabled"):
+
+        # update timestamps of all files that were tested but not processed
         values = []
         for path, mtime in get_files_tested(library_id, clear=True).items():
             logger.info(f"Updating timestamp library_id={library_id} path={path} to {mtime} (no processing)")
             values.append((library_id, path, mtime))
         timestamps.put_many(values)
 
-    percent = str(settings.get_setting("check_old_metadata"))
-    percent = percent.strip().rstrip("%").strip()
-    frac = float(percent) / 100
+        # remove all files from the db that we have not seen in this scan
 
-    _prune_metadata(frac)
+        t0 = time.time()
+        files_seen = get_files_seen(library_id, clear=True)
+        def keep(path: str) -> bool:
+            if path not in files_seen:
+                logger.info(f"Removing from database: library_id={library_id} path={path}")
+            return path in files_seen
+
+        timestamps.check_oldest(library_id, 1.0, keep, set_last_update=False)
+        t1 = time.time()
+        logger.info(f'Prune duration: {t1 - t0:.2f} seconds')
+
+    if settings.get_setting("caching_enabled"):
+        percent = str(settings.get_setting("check_old_metadata"))
+        percent = percent.strip().rstrip("%").strip()
+        frac = float(percent) / 100
+
+        _prune_metadata(frac)
