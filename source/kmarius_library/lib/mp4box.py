@@ -208,6 +208,19 @@ class MP4BoxInfoxParser:
             self._track['sample_rate'] = sample_rate
             return
 
+        match = self._match(r'^EC-3 stream - Sample Rate (\d+) - ([0-9.]) channel(s) - bitrate (\d+) - ATMOS complexity index type 16', line)
+        if match:
+            sample_rate, channels, bit_rate = match.groups()
+            match = self._match(r'^(\d+)\.(\d+)$', channels)
+            if match:
+                channels = int(match.group(1)) + int(match.group(2))
+            else:
+                channels = int(channels)
+            self._track['channels'] = channels
+            self._track['sample_rate'] = int(sample_rate)
+            self._track['bit_rate'] = int(sample_rate)
+            return
+
         match = self._match(r'^Pixel Aspect Ratio ([^ ]+) .*', line)
         if match:
             self._track['Pixel Aspect Ratio'] = match.group(1)
