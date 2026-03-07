@@ -87,3 +87,43 @@ def on_worker_process(data: ProcessItemData, **kwargs):
 
     data['exec_command'] = MP4Box.build_command(file_in, file_out, param)
     data['command_progress_parser'] = MP4Box.parse_progress
+
+
+# very rarely a file is not interleaved after processing and has very strange interleaving chunk durations
+# i'd just rather replace those files than have the re-processed again
+def on_postprocessor_task_results(data: TaskResultData, **kwargs):
+    if data["task_processing_success"] and data["file_move_processes_success"]:
+        library_id = data["library_id"]
+        settings = Settings(library_id=library_id)
+        param = int(settings.get_setting("interleave_parameter"))
+
+        paths = data["destination_files"]
+        if not paths:
+            path = data['source_data']['abspath']
+        else:
+            path = paths[0]
+
+        ext = os.path.splitext(path)[1][1:].lower()
+        if ext != "mp4":
+            return
+
+        mp4box = MP4Box.probe(path)
+        if mp4box is None:
+            logger.error(f"No mp4box info: path={path}")
+            return
+
+        bad = False
+        if not is_progressive(mp4box):
+            logger.error(f"Not progressive after processing: library_id={library_id} path={file_in}")
+            bad = True
+        if not is_interleaved(mp4box, param):
+            logger.error(f"Not interleaved after processing: library_id={library_id} path={file_in}")
+            bad = True
+
+        if bad:
+            try:
+                from kmarius_healthcheck.lib.issues import append_issues
+                mtime = int(os.path.getmtime(path))
+                append_issues(library_id, path, mtime, 'Weird MP4Box')
+            except Exception as e:
+                logger.error(e)
