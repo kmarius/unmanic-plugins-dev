@@ -85,7 +85,7 @@ def on_worker_process(data: ProcessItemData, **kwargs):
     steps = duration * updates_per_second
     sleep_time = 1.0 / updates_per_second
     command = "; ".join([f"echo {i * 100 // steps}; sleep {sleep_time}" for i in range(steps)])
-    command += "; echo 100; touch $1"
+    command += '; echo 100; touch "$1"'
 
     if settings.get_setting("fail_processing"):
         command += "; exit 1"
