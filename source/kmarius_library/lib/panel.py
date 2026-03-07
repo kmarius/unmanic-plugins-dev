@@ -353,7 +353,19 @@ class Panel:
             'type': 'folder',
         }
 
-    def _get_subtree(self, library_id, path, title) -> dict:
+    def _get_subtree(self, arguments) -> dict:
+        library_id = arguments['library_id'][0]
+
+        # winderbaum calls this with undefined parameters if all nodes are filtered away
+        if library_id == 'undefined':
+            return {
+                'title': 'undefined',
+                'children': [],
+            }
+        library_id = int(library_id)
+        path = arguments['path'][0]
+        title = arguments['path'][0]
+
         library = Libraries().select().where(Libraries.id == library_id).first()
 
         if library.enable_remote_only:
@@ -514,11 +526,7 @@ class Panel:
                 case '/process', 'POST':
                     self._process_files(_unpack_items(body))
                 case '/subtree', 'GET':
-                    data['content'] = self._get_subtree(
-                        int(arguments['library_id'][0]),
-                        arguments['path'][0],
-                        arguments['title'][0]
-                    )
+                    data['content'] = self._get_subtree(arguments)
                 case '/libraries', 'GET':
                     data['content'] = self._get_libraries()
                 case '/timestamp/reset', 'POST':
