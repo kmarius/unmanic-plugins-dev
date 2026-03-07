@@ -139,6 +139,21 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         issues_db.insert(library_id, path, mtime, ','.join(file_issues))
 
 
+def emit_postprocessor_complete(data: PostprocessorCompleteData, **kwargs):
+    # update the timestamp in the database after file processing
+    # also handles renames, e.g. if processing changed the container form mkv to mp4
+    if data['task_success']:
+        library_id = data['library_id']
+        path = data['destination_data']['abspath']
+        src_path = data['source_data']['abspath']
+
+        mtime = int(os.path.getmtime(path))
+        if path == src_path:
+            issues_db.update_mtime(mtime, library_id, src_path)
+        else:
+            issues_db.rename(library_id, src_path, path, mtime)
+
+
 def emit_scan_complete(data: ScanCompleteData, **kwargs):
     # check against the library database and remove all issues of files not in the library
     from kmarius_library.lib import timestamps

@@ -123,6 +123,30 @@ def insert(library_id: int, path: str, mtime: int, issues: str):
                     ''', (library_id, path, os.path.basename(path), mtime, now, issues, 0))
 
 
+def append_issues(library_id: int, path: str, mtime: int, issues: str):
+    now = int(time.time())
+    with _get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('''SELECT issues
+                       FROM issues
+                       WHERE library_id = ?
+                         and path = ?''', (library_id, path))
+        row = cur.fetchone()
+        if row:
+            current_issues = row[0].split(',')
+            initial_len = len(current_issues)
+            for issue in issues.split(','):
+                if not issue in current_issues:
+                    current_issues.append(issue)
+            if len(current_issues) > initial_len:
+                cur.execute('''UPDATE issues
+                               SET issues = ?
+                               WHERE library_id = ?
+                                 AND path = ?''', (','.join(current_issues), library_id, path))
+            return
+    insert(library_id, path, mtime, issues)
+
+
 @SQL('UPDATE issues SET resolved = ? WHERE rowid = ?')
 def resolve(resolved: bool, rowid: int):
     pass
@@ -131,6 +155,22 @@ def resolve(resolved: bool, rowid: int):
 @SQL('DELETE FROM issues WHERE library_id = ? AND path = ?')
 def delete(library_id: int, path: str, reuse_connection=False):
     pass
+
+
+@SQL('UPDATE issues SET mtime = ? WHERE library_id = ? AND path = ?')
+def update_mtime(mtime: int, library_id: int, path: str):
+    pass
+
+
+def rename(library_id: int, path: str, new_path: str, mtime: int):
+    with _get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute('SELECT issues FROM issues WHERE library_id = ? AND path = ?', (library_id, path))
+        row = cur.fetchone()
+        if not row:
+            return
+    delete(library_id, path)
+    insert(library_id, new_path, mtime, row[0])
 
 
 def query(library_id: int = None, offset: int = None, limit: int = None, order=None, search: list = None,
