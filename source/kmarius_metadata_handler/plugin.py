@@ -8,30 +8,30 @@ from kmarius_metadata_handler.lib.types import FileTestData
 def on_library_management_file_test(data: FileTestData, **kwargs):
     task_data = init_task_data(data)
 
-    shared_info = data["shared_info"]
-    ffprobe = shared_info["ffprobe"]
-    mediainfo = shared_info.get("mediainfo")
+    shared_info = data['shared_info']
+    ffprobe = shared_info['ffprobe']
+    mediainfo = shared_info.get('mediainfo')
 
-    path = data["path"]
+    path = data['path']
 
     has_metadata = False
     has_track_metadata = False
 
     # check file itself for metadata
-    tags = ffprobe.get("format", {}).get("tags", {})
-    if "title" in tags or "comment" in tags:
+    tags = ffprobe.get('format', {}).get('tags', {})
+    if 'title' in tags or 'comment' in tags:
         has_metadata = True
 
     if mediainfo is None:
-        command = ["mediainfo", "--output=JSON", path]
+        command = ['mediainfo', '--output=JSON', path]
         pipe = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         out, err = pipe.communicate()
-        mediainfo = json.loads(out.decode("utf-8"))
+        mediainfo = json.loads(out.decode('utf-8'))
 
-    for track in mediainfo.get("media", {}).get("track", []):
+    for track in mediainfo.get('media', {}).get('track', []):
         # TODO: we are removing title, name, comment, handler_name, vendor_id and should probably also check these here
-        if "Title" in track or "Comment" in track:
+        if 'Title' in track or 'Comment' in track:
             has_track_metadata = True
             has_metadata = True
             break
@@ -53,7 +53,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
             'attachment': 'a',
         }
 
-        mappings = task_data["mappings"]
+        mappings = task_data['mappings']
         for stream_type in streams.keys():
             if not stream_type in mappings:
                 mappings[stream_type] = {}
@@ -65,30 +65,30 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
                 if i in stream_mapping:
                     mapping = stream_mapping[i]
                     # len == 0 means streams are removed
-                    if mapping["stream_encoding"]:
-                        mapping["stream_encoding"] += [
-                            f"-metadata:s:a:{i}", "title=",
-                            f"-metadata:s:a:{i}", "name=",
-                            f"-metadata:s:a:{i}", "comment=",
-                            f"-metadata:s:a:{i}", "handler_name=",
-                            f"-metadata:s:a:{i}", "vendor_id=",
+                    if mapping['stream_encoding']:
+                        mapping['stream_encoding'] += [
+                            f'-metadata:s:a:{i}', 'title=',
+                            f'-metadata:s:a:{i}', 'name=',
+                            f'-metadata:s:a:{i}', 'comment=',
+                            f'-metadata:s:a:{i}', 'handler_name=',
+                            f'-metadata:s:a:{i}', 'vendor_id=',
                         ]
                 else:
                     stream_mapping[i] = {
                         'stream_mapping': ['-map', f'0:{c}:{i}'],
                         'stream_encoding': [
-                            f"-c:{c}:{i}", "copy",
-                            f"-metadata:s:a:{i}", "title=",
-                            f"-metadata:s:a:{i}", "name=",
-                            f"-metadata:s:a:{i}", "comment=",
-                            f"-metadata:s:a:{i}", "handler_name=",
-                            f"-metadata:s:a:{i}", "vendor_id=",
+                            f'-c:{c}:{i}', 'copy',
+                            f'-metadata:s:a:{i}', 'title=',
+                            f'-metadata:s:a:{i}', 'name=',
+                            f'-metadata:s:a:{i}', 'comment=',
+                            f'-metadata:s:a:{i}', 'handler_name=',
+                            f'-metadata:s:a:{i}', 'vendor_id=',
                         ],
                     }
 
     if has_metadata:
-        task_data["add_file_to_pending_tasks"] = True
-        data["issues"].append({
-            "id": "kmarius_metadata_handler",
-            "message": f"metadata found: {path}"
+        task_data['add_file_to_pending_tasks'] = True
+        data['issues'].append({
+            'id': 'kmarius_metadata_handler',
+            'message': f'metadata found: {path}'
         })

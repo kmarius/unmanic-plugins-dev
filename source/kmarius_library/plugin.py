@@ -20,49 +20,49 @@ class Settings(PluginSettings):
     @staticmethod
     def __build_settings():
         settings = {
-            "extensions": '',
-            "ignored_paths": "",
-            "incremental_scan_enabled": True,
-            "check_old_timestamps": "1%",
-            "reset_old_timestamps": True,
-            "check_old_metadata": "5%",
-            "quiet_incremental_scan": True,
-            "caching_enabled": True,
+            'extensions': '',
+            'ignored_paths': '',
+            'incremental_scan_enabled': True,
+            'check_old_timestamps': '1%',
+            'reset_old_timestamps': True,
+            'check_old_metadata': '5%',
+            'quiet_incremental_scan': True,
+            'caching_enabled': True,
         }
         form_settings = {
-            "extensions": {
-                "label": "Search library only for extensions",
-                "description": "A comma separated list of allowed file extensions.",
+            'extensions': {
+                'label': 'Search library only for extensions',
+                'description': 'A comma separated list of allowed file extensions.',
             },
-            "ignored_paths": {
-                "label": "Regular expression patterns of paths to ignore - one per line",
-                "input_type": "textarea",
+            'ignored_paths': {
+                'label': 'Regular expression patterns of paths to ignore - one per line',
+                'input_type': 'textarea',
             },
-            "incremental_scan_enabled": {
-                "label": "Enable incremental scans (ignore unchanged files)",
+            'incremental_scan_enabled': {
+                'label': 'Enable incremental scans (ignore unchanged files)',
             },
-            "check_old_timestamps": {
-                "label": f"Percentage of oldest files that will be checked to be pruned (e.g. '7' or '0.5%')",
+            'check_old_timestamps': {
+                'label': "Percentage of oldest files that will be checked to be pruned (e.g. '7' or '0.5%')",
                 'display': 'hidden',
-                "sub_setting": True,
+                'sub_setting': True,
             },
-            "reset_old_timestamps": {
-                "label": f"Reset timestamps of existing old files for re-testing.",
+            'reset_old_timestamps': {
+                'label': 'Reset timestamps of existing old files for re-testing.',
                 'display': 'hidden',
-                "sub_setting": True,
+                'sub_setting': True,
             },
-            "check_old_metadata": {
-                "label": f"Percentage of oldest metadata entries that will be checked to be pruned (e.g. '7' or '0.5%')",
+            'check_old_metadata': {
+                'label': "Percentage of oldest metadata entries that will be checked to be pruned (e.g. '7' or '0.5%')",
                 'display': 'hidden',
-                "sub_setting": True,
+                'sub_setting': True,
             },
-            "quiet_incremental_scan": {
-                "label": "Don't log unchanged files.",
+            'quiet_incremental_scan': {
+                'label': "Don't log unchanged files.",
                 'display': 'hidden',
-                "sub_setting": True,
+                'sub_setting': True,
             },
-            "caching_enabled": {
-                "label": "Enable metadata caching"
+            'caching_enabled': {
+                'label': 'Enable metadata caching'
             },
         }
 
@@ -70,36 +70,36 @@ class Settings(PluginSettings):
             p.setting_name_enabled(): p.default_enabled for p in PROVIDERS
         })
         settings.update({
-            "quiet_caching": True,
+            'quiet_caching': True,
         })
 
         form_settings.update({
             p.setting_name_enabled(): {
                 'label': f'Enable {p.name} caching',
-                "sub_setting": True,
+                'sub_setting': True,
                 'display': 'hidden',
             } for p in PROVIDERS
         })
         form_settings.update({
-            "quiet_caching": {
+            'quiet_caching': {
                 'label': "Don't log successful cache lookups.",
-                "sub_setting": True,
+                'sub_setting': True,
                 'display': 'hidden',
             }
         })
 
         settings.update({
-            "header_panel": "",
-            "hide_empty": False,
+            'header_panel': '',
+            'hide_empty': False,
         })
         form_settings.update({
-            "header_panel": {
-                "label": "Panel settings",
-                "input_type": "section_subheader",
+            'header_panel': {
+                'label': 'Panel settings',
+                'input_type': 'section_subheader',
             },
-            "hide_empty": {
-                "label": "Hide empty directories",
-                "description": "Hide directories e.g. if all its contents are filtered. This setting only effects the data panel.",
+            'hide_empty': {
+                'label': 'Hide empty directories',
+                'description': 'Hide directories e.g. if all its contents are filtered. This setting only effects the data panel.',
             },
         })
 
@@ -116,18 +116,18 @@ class Settings(PluginSettings):
             # FIXME: in staging, settings_configured is not populated at this point and the corresponding method is private
             self._PluginSettings__import_configured_settings()
         if self.settings_configured:
-            if self.settings_configured.get("incremental_scan_enabled"):
-                del form_settings["check_old_timestamps"]["display"]
-                del form_settings["reset_old_timestamps"]["display"]
-                del form_settings["check_old_metadata"]["display"]
-            if self.settings_configured.get("caching_enabled"):
+            if self.settings_configured.get('incremental_scan_enabled'):
+                del form_settings['check_old_timestamps']['display']
+                del form_settings['reset_old_timestamps']['display']
+                del form_settings['check_old_metadata']['display']
+            if self.settings_configured.get('caching_enabled'):
                 for setting, val in form_settings.items():
-                    if setting.startswith("cache_"):
-                        del val["display"]
-                    if setting == "quiet_caching":
-                        del val["display"]
-            if self.settings_configured.get("incremental_scan_enabled"):
-                del form_settings["quiet_incremental_scan"]["display"]
+                    if setting.startswith('cache_'):
+                        del val['display']
+                    if setting == 'quiet_caching':
+                        del val['display']
+            if self.settings_configured.get('incremental_scan_enabled'):
+                del form_settings['quiet_incremental_scan']['display']
         return form_settings
 
 
@@ -144,16 +144,16 @@ class CombinedSettings:
             self.configured_for.append(lib.id)
 
     def is_valid(self) -> bool:
-        """Check whether the configuration is still valid. If not, it should be re-created."""
+        '''Check whether the configuration is still valid. If not, it should be re-created.'''
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             if not lib.id in self.configured_for:
                 return False
         return True
 
     def get_setting(self, key=None):
-        match = re.match(r"^library_(\d+)_(.*)", key)
+        match = re.match(r'^library_(\d+)_(.*)', key)
         if match is None:
-            logger.error(f"CombinedSettings: unexpected key: {key}")
+            logger.error(f'CombinedSettings: unexpected key: {key}')
             return None
         library_id, key = match.groups()
         if library_id not in self.settings:
@@ -163,9 +163,9 @@ class CombinedSettings:
     def get_allowed_extensions(self, library_id: int) -> list[str]:
         if library_id not in self._allowed_extensions:
             settings = Settings(library_id=library_id)
-            extensions = settings.get_setting("extensions").split(",")
-            extensions = [ext.strip().lstrip(".") for ext in extensions]
-            extensions = [ext for ext in extensions if ext != ""]
+            extensions = settings.get_setting('extensions').split(',')
+            extensions = [ext.strip().lstrip('.') for ext in extensions]
+            extensions = [ext for ext in extensions if ext != '']
             if not extensions:
                 extensions = None
             self._allowed_extensions[library_id] = extensions
@@ -182,9 +182,9 @@ class CombinedSettings:
         if library_id not in self._ignored_path_patterns:
             settings = Settings(library_id=library_id)
             patterns = []
-            for regex_pattern in settings.get_setting("ignored_paths").splitlines():
+            for regex_pattern in settings.get_setting('ignored_paths').splitlines():
                 regex_pattern = regex_pattern.strip()
-                if regex_pattern and not regex_pattern.startswith("#"):
+                if regex_pattern and not regex_pattern.startswith('#'):
                     pattern = re.compile(regex_pattern)
                     patterns.append(pattern)
             self._ignored_path_patterns[library_id] = patterns
@@ -213,7 +213,7 @@ def update_cached_metadata(providers: list[MetadataProvider], path: str):
             metadata = p.run_prog(path)
 
             if metadata is not None:
-                logger.info(f"Updating {p.name} data - {path}")
+                logger.info(f'Updating {p.name} data - {path}')
                 cache.put(p.name, path, mtime, metadata)
     except Exception as e:
         logger.error(e)
@@ -229,8 +229,8 @@ def update_timestamp(library_id: int, path: str):
 
 def on_library_management_file_test(data: FileTestData, **kwargs):
     settings = Settings(library_id=data.get('library_id'))
-    path = data["path"]
-    library_id = data["library_id"]
+    path = data['path']
+    library_id = data['library_id']
 
     if not combined_settings.is_extension_allowed(library_id, path):
         data['add_file_to_pending_tasks'] = False
@@ -240,7 +240,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         data['add_file_to_pending_tasks'] = False
         return
 
-    if settings.get_setting("incremental_scan_enabled"):
+    if settings.get_setting('incremental_scan_enabled'):
         add_file_seen(library_id, path)
         mtime = int(os.path.getmtime(path))
         timestamp = timestamps.get(library_id, path, reuse_connection=True)
@@ -249,18 +249,18 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
             # before emit_scan_complete is called
             timestamps.put(library_id, path, 0, reuse_connection=True)
         elif timestamp == mtime:
-            if not settings.get_setting("quiet_incremental_scan"):
-                data["issues"].append({
+            if not settings.get_setting('quiet_incremental_scan'):
+                data['issues'].append({
                     'id': PLUGIN_ID,
-                    'message': f"unchanged: library_id={library_id} path={path}"
+                    'message': f'unchanged: library_id={library_id} path={path}'
                 })
             data['add_file_to_pending_tasks'] = False
             return
         add_file_tested(library_id, path, mtime)
 
-    if settings.get_setting("caching_enabled"):
+    if settings.get_setting('caching_enabled'):
         mtime = int(os.path.getmtime(path))
-        quiet = settings.get_setting("quiet_caching")
+        quiet = settings.get_setting('quiet_caching')
 
         for provider in PROVIDERS:
             if not settings.get_setting(provider.setting_name_enabled()):
@@ -272,23 +272,23 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
 
             if metadata is not None:
                 if not quiet:
-                    logger.info(f"Cached {provider.name} data found - {path}")
+                    logger.info(f'Cached {provider.name} data found - {path}')
             else:
-                logger.info(f"No cached {provider.name} data found, refreshing - {path}")
+                logger.info(f'No cached {provider.name} data found, refreshing - {path}')
                 metadata = provider.run_prog(path)
                 if metadata is not None:
                     cache.put(provider.name, path, mtime, metadata, reuse_connection=True)
 
             if metadata is not None:
-                data["shared_info"][provider.name] = metadata
+                data['shared_info'][provider.name] = metadata
 
 
 def on_postprocessor_task_results(data: TaskResultData, **kwargs):
-    if data["task_processing_success"] and data["file_move_processes_success"]:
-        library_id = data["library_id"]
+    if data['task_processing_success'] and data['file_move_processes_success']:
+        library_id = data['library_id']
         settings = Settings(library_id=library_id)
-        incremental_scan_enabled = settings.get_setting("incremental_scan_enabled")
-        caching_enabled = settings.get_setting("caching_enabled")
+        incremental_scan_enabled = settings.get_setting('incremental_scan_enabled')
+        caching_enabled = settings.get_setting('caching_enabled')
 
         enabled_providers = []
 
@@ -297,17 +297,17 @@ def on_postprocessor_task_results(data: TaskResultData, **kwargs):
                 if settings.get_setting(p.setting_name_enabled()):
                     enabled_providers.append(p)
 
-        paths = data["destination_files"]
+        paths = data['destination_files']
         if not paths:
             # TODO: this happens because we are not moving unchanged files to cache and back
-            paths = [data["source_data"]["abspath"]]
+            paths = [data['source_data']['abspath']]
 
         for path in paths:
             if combined_settings.is_extension_allowed(library_id, path):
                 if caching_enabled:
                     update_cached_metadata(enabled_providers, path)
                 if incremental_scan_enabled:
-                    logger.info(f"Updating timestamp library_id={library_id} path={path}")
+                    logger.info(f'Updating timestamp library_id={library_id} path={path}')
                     update_timestamp(library_id, path)
 
 
@@ -336,7 +336,7 @@ def _prune_timestamps(library_id=None, fraction=1.0, set_last_update=True):
             return True
 
         num_pruned += timestamps.check_oldest(library_id, fraction, keep_entry, set_last_update=set_last_update)
-    logger.info(f"Pruned {num_pruned} timestamps")
+    logger.info(f'Pruned {num_pruned} timestamps')
 
 
 def _prune_metadata(fraction=1.0):
@@ -345,7 +345,7 @@ def _prune_metadata(fraction=1.0):
     num_pruned = 0
     for provider in PROVIDERS:
         num_pruned += cache.check_oldest(provider.name, fraction, lambda path: path in all_paths)
-    logger.info(f"Pruned {num_pruned} metadata items")
+    logger.info(f'Pruned {num_pruned} metadata items')
 
 
 def render_frontend_panel(data: PanelData, **kwargs):
@@ -357,17 +357,17 @@ def render_plugin_api(data: PluginApiData, **kwargs):
 
 
 def emit_scan_start(data: dict, **kwargs):
-    library_id = data["library_id"]
+    library_id = data['library_id']
     settings = Settings(library_id=library_id)
 
-    reset_old_timestamps = settings.get_setting("reset_old_timestamps")
-    percent = settings.get_setting("check_old_timestamps")
-    percent = percent.strip().rstrip("%").strip()
+    reset_old_timestamps = settings.get_setting('reset_old_timestamps')
+    percent = settings.get_setting('check_old_timestamps')
+    percent = percent.strip().rstrip('%').strip()
     frac = float(percent) / 100
 
     if reset_old_timestamps:
         num = reset_oldest(library_id, frac)
-        logger.info(f"Reset {num} oldest timestamps")
+        logger.info(f'Reset {num} oldest timestamps')
 
     # when not resetting timestamps we must set last_update, otherwise we check the same old elements over and over
     set_last_update = not reset_old_timestamps
@@ -375,23 +375,23 @@ def emit_scan_start(data: dict, **kwargs):
 
 
 def emit_file_queued(data: dict, **kwargs):
-    library_id = data["library_id"]
-    path = data["file_path"]
+    library_id = data['library_id']
+    path = data['file_path']
     # remove file from the list of tested files; we update these at the end of the scan,
     # this one is updated after processing
     remove_file_tested(library_id, path)
 
 
 def emit_scan_complete(data: dict, **kwargs):
-    library_id = data["library_id"]
+    library_id = data['library_id']
     settings = Settings(library_id=library_id)
 
-    if settings.get_setting("incremental_scan_enabled"):
+    if settings.get_setting('incremental_scan_enabled'):
 
         # update timestamps of all files that were tested but not processed
         values = []
         for path, mtime in get_files_tested(library_id, clear=True).items():
-            logger.info(f"Updating timestamp library_id={library_id} path={path} to {mtime} (no processing)")
+            logger.info(f'Updating timestamp library_id={library_id} path={path} to {mtime} (no processing)')
             values.append((library_id, path, mtime))
         timestamps.put_many(values)
 
@@ -399,18 +399,19 @@ def emit_scan_complete(data: dict, **kwargs):
 
         t0 = time.time()
         files_seen = get_files_seen(library_id, clear=True)
+
         def keep(path: str) -> bool:
             if path not in files_seen:
-                logger.info(f"Removing from database: library_id={library_id} path={path}")
+                logger.info(f'Removing from database: library_id={library_id} path={path}')
             return path in files_seen
 
         timestamps.check_oldest(library_id, 1.0, keep, set_last_update=False)
         t1 = time.time()
         logger.info(f'Prune duration: {t1 - t0:.2f} seconds')
 
-    if settings.get_setting("caching_enabled"):
-        percent = str(settings.get_setting("check_old_metadata"))
-        percent = percent.strip().rstrip("%").strip()
+    if settings.get_setting('caching_enabled'):
+        percent = str(settings.get_setting('check_old_metadata'))
+        percent = percent.strip().rstrip('%').strip()
         frac = float(percent) / 100
 
         _prune_metadata(frac)

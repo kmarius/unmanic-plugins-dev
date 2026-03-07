@@ -12,12 +12,12 @@ from kmarius_subtitle_handler.lib import logger
 
 class Settings(PluginSettings):
     settings = {
-        "languages_to_extract": "eng",
+        'languages_to_extract': 'eng',
     }
 
     form_settings = {
-        "languages_to_extract": {
-            "label": "Subtitle languages to extract (leave empty for all)",
+        'languages_to_extract': {
+            'label': 'Subtitle languages to extract (leave empty for all)',
         },
     }
 
@@ -39,7 +39,7 @@ class PluginStreamMapper(StreamMapper):
         self.languages = [language.strip() for language in languages]
 
     def test_stream_needs_processing(self, stream_info: dict):
-        """Any text based will need to be processed"""
+        '''Any text based will need to be processed'''
 
         if stream_info.get('codec_name', '').lower() not in ['srt', 'subrip', 'mov_text']:
             return False
@@ -71,11 +71,11 @@ class PluginStreamMapper(StreamMapper):
         subtitle_tag = ''
 
         if language_tag:
-            subtitle_tag = "{}.{}".format(subtitle_tag, language_tag)
+            subtitle_tag = '{}.{}'.format(subtitle_tag, language_tag)
 
         # If there were no tags, just number the file
         if not subtitle_tag:
-            subtitle_tag = "{}.{}".format(
+            subtitle_tag = '{}.{}'.format(
                 subtitle_tag, stream_info.get('index'))
 
         # Ensure subtitle tag does not contain whitespace or slashes
@@ -96,11 +96,11 @@ class PluginStreamMapper(StreamMapper):
         }
 
     def get_ffmpeg_args(self):
-        """
+        '''
         Overwrite default function. We only need the first lot of args.
 
         :return:
-        """
+        '''
         args = []
 
         # Add generic options first
@@ -109,7 +109,7 @@ class PluginStreamMapper(StreamMapper):
         # Add the input file
         # This class requires at least one input file specified with the input_file attribute
         if not self.input_file:
-            raise Exception("Input file has not been set")
+            raise Exception('Input file has not been set')
         args += ['-i', self.input_file]
 
         # Add other main options
@@ -124,7 +124,7 @@ class PluginStreamMapper(StreamMapper):
 def on_library_management_file_test(data: FileTestData, **kwargs):
     task_data = init_task_data(data)
 
-    subtitle_streams = task_data["streams"]["subtitle"]
+    subtitle_streams = task_data['streams']['subtitle']
     subtitle_mappings = {}
 
     # remove all streams
@@ -134,9 +134,9 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
             'stream_encoding': [],
         }
 
-    task_data["mappings"]["subtitle"] = subtitle_mappings
+    task_data['mappings']['subtitle'] = subtitle_mappings
     if subtitle_mappings:
-        task_data["add_file_to_pending_tasks"] = True
+        task_data['add_file_to_pending_tasks'] = True
 
 
 def on_worker_process(data: ProcessItemData, **kwargs):
@@ -170,10 +170,10 @@ def on_worker_process(data: ProcessItemData, **kwargs):
         for sub_stream in mapper.sub_streams:
             stream_mapping = sub_stream.get('stream_mapping', [])
             subtitle_tag = sub_stream.get('subtitle_tag')
-            subtitle_path = os.path.join(original_file_directory, f"{original_stem}.{subtitle_tag}.srt")
+            subtitle_path = os.path.join(original_file_directory, f'{original_stem}.{subtitle_tag}.srt')
 
             ffmpeg_args += stream_mapping
-            ffmpeg_args += ["-y", subtitle_path]
+            ffmpeg_args += ['-y', subtitle_path]
 
         # Apply ffmpeg args to command
         data['exec_command'] = ['ffmpeg']

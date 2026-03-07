@@ -3,18 +3,18 @@ import logging
 from kmarius_executor.lib.ffmpeg import Probe
 from kmarius_executor.lib.types import FileTestData
 
-PLUGIN_ID = "kmarius_executor"
+PLUGIN_ID = 'kmarius_executor'
 
-logger = logging.getLogger(f"Unmanic.Plugin.{PLUGIN_ID}")
+logger = logging.getLogger(f'Unmanic.Plugin.{PLUGIN_ID}')
 
 
 def _streams_from_probe(probe_info: dict) -> dict:
     streams = {
-        "audio": [],
-        "video": [],
-        "subtitle": [],
-        "data": [],
-        "attachment": []
+        'audio': [],
+        'video': [],
+        'subtitle': [],
+        'data': [],
+        'attachment': []
     }
     for stream_info in probe_info.get('streams', {}):
         codec_type = stream_info.get('codec_type', '').lower()
@@ -23,21 +23,21 @@ def _streams_from_probe(probe_info: dict) -> dict:
     # store stream idx in the actual stream info
     for codec_type, streams_infos in streams.items():
         for idx, stream in enumerate(streams_infos):
-            stream["idx"] = idx
+            stream['idx'] = idx
 
     return streams
 
 
 def init_task_data(data: FileTestData) -> dict:
-    shared_info = data["shared_info"]
-    if "task_data" not in shared_info:
-        shared_info["task_data"] = {
-            "add_file_to_pending_tasks": False,
-            "streams": _streams_from_probe(shared_info["ffprobe"]),
-            "mappings": {},
-            "ffprobe": shared_info["ffprobe"],
+    shared_info = data['shared_info']
+    if 'task_data' not in shared_info:
+        shared_info['task_data'] = {
+            'add_file_to_pending_tasks': False,
+            'streams': _streams_from_probe(shared_info['ffprobe']),
+            'mappings': {},
+            'ffprobe': shared_info['ffprobe'],
         }
-    return shared_info["task_data"]
+    return shared_info['task_data']
 
 
 # this is how we pass task data from tester to processor

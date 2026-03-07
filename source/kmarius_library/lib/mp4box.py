@@ -49,17 +49,17 @@ class MP4BoxInfoxParser:
                     self._state = 'info'
 
             match self._state:
-                case "header":
+                case 'header':
                     self._parse_header_line(line)
-                case "chapters":
+                case 'chapters':
                     self._parse_chapter_line(line)
-                case "metadata":
+                case 'metadata':
                     self._parse_metadata_line(line)
-                case "track":
+                case 'track':
                     self._parse_track_line(line)
-                case "sample":
+                case 'sample':
                     self._parse_sample_line(line)
-                case "info":
+                case 'info':
                     self._parse_info_line(line)
 
         if self._chapters:
@@ -315,9 +315,9 @@ class MP4BoxInfoxParser:
 class MP4Box:
     @staticmethod
     def probe(path, logger=None) -> dict | None:
-        proc = subprocess.run(["MP4Box", "-infox", path], capture_output=True)
+        proc = subprocess.run(['MP4Box', '-infox', path], capture_output=True)
         proc.check_returncode()
-        return MP4BoxInfoxParser(logger=logger).parse(proc.stderr.decode("utf-8"))
+        return MP4BoxInfoxParser(logger=logger).parse(proc.stderr.decode('utf-8'))
 
     @staticmethod
     def build_command(file_in: str, file_out: str, param: int) -> list[str]:

@@ -6,7 +6,7 @@ from kmarius_executor.lib import init_task_data
 
 
 def check_stream_lang(stream_info: dict, lang: str) -> bool:
-    return stream_info.get("tags", {}).get("language", "").lower() == lang
+    return stream_info.get('tags', {}).get('language', '').lower() == lang
 
 
 # try to find an english language stream and return its index. If there are multiple, returns one with the most channels
@@ -14,8 +14,8 @@ def search_eng_idx(streams: dict) -> Optional[int]:
     lang_idx = None
     lang_channels = None
     for idx, stream_info in enumerate(streams):
-        if check_stream_lang(stream_info, "eng"):
-            channels = stream_info.get("channels", 0)
+        if check_stream_lang(stream_info, 'eng'):
+            channels = stream_info.get('channels', 0)
             if lang_idx is None or channels > lang_channels:
                 lang_idx = idx
                 lang_channels = channels
@@ -25,11 +25,11 @@ def search_eng_idx(streams: dict) -> Optional[int]:
 # convert non-aac streams to aac
 def audio_stream_mapping(stream_info: dict, idx: int) -> Optional[dict]:
     # TODO: always convert > 6 channels to 6?
-    codec_name = stream_info["codec_name"]
-    if codec_name == "aac":
+    codec_name = stream_info['codec_name']
+    if codec_name == 'aac':
         return None
-    logger.info(f"converting audio stream {idx} from {codec_name}")
-    stream_encoding = [f'-c:a:{idx}', "aac"]
+    logger.info(f'converting audio stream {idx} from {codec_name}')
+    stream_encoding = [f'-c:a:{idx}', 'aac']
     if 'channels' in stream_info:
         channels = int(stream_info.get('channels'))
         if channels > 6:
@@ -37,7 +37,7 @@ def audio_stream_mapping(stream_info: dict, idx: int) -> Optional[dict]:
         calculated_bitrate = channels * 64
         stream_encoding += [
             f'-ac:a:{idx}', f'{channels}',
-            f'-b:a:{idx}', f"{calculated_bitrate}k",
+            f'-b:a:{idx}', f'{calculated_bitrate}k',
         ]
     return {
         'stream_mapping': ['-map', f'0:a:{idx}'],
@@ -50,7 +50,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
 
     # TODO: add functionality for foreign language films
 
-    audio_streams = task_data["streams"]["audio"]
+    audio_streams = task_data['streams']['audio']
     audio_mappings = {}
 
     # try to find an english language stream
@@ -68,6 +68,6 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         if mapping:
             audio_mappings[idx] = mapping
 
-    task_data["mappings"]["audio"] = audio_mappings
+    task_data['mappings']['audio'] = audio_mappings
     if audio_mappings:
-        task_data["add_file_to_pending_tasks"] = True
+        task_data['add_file_to_pending_tasks'] = True

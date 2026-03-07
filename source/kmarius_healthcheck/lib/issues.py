@@ -33,7 +33,7 @@ class ExplainCursor(sqlite3.Cursor):
 
     def execute(self, sql: str, parameters=()):
         if ExplainCursor._EXPLAIN:
-            logger.info('Explaining: ' + sql + " " + str(parameters))
+            logger.info('Explaining: ' + sql + ' ' + str(parameters))
             for *_, ex in super().execute('EXPLAIN QUERY PLAN ' + sql, parameters):
                 logger.info(ex)
         return super().execute(sql, parameters)
@@ -42,7 +42,7 @@ class ExplainCursor(sqlite3.Cursor):
 # NOTE: only reuse in short-lived threads like FileTester
 def _get_connection(reuse_connection=False) -> sqlite3.Connection:
     if reuse_connection:
-        if not hasattr(_local, "connection"):
+        if not hasattr(_local, 'connection'):
             _local.connection = sqlite3.connect(DB_PATH)
         return _local.connection
     else:
@@ -57,20 +57,20 @@ def _check_column_exists(conn: sqlite3.Connection, table_name: str, column_name:
 
 
 def _perform_maintenance(cur: sqlite3.Cursor):
-    mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
+    mode = os.getenv('UNMANIC_SQLITE_MAINTENANCE')
     if not mode:
-        mode = "basic"
+        mode = 'basic'
 
-    if mode not in ["off", "basic", "full"]:
+    if mode not in ['off', 'basic', 'full']:
         logger.error(f"Unknown UNMANIC_SQLITE_MAINTENANCE mode '{mode}'")
         return
 
-    if mode == "off":
+    if mode == 'off':
         return
 
     cur.execute('PRAGMA wal_checkpoint(TRUNCATE)')
     cur.execute('PRAGMA optimize')
-    if mode == "full":
+    if mode == 'full':
         cur.execute('VACUUM')
 
 

@@ -8,7 +8,7 @@ from unmanic.libs import common
 
 from . import logger, PLUGIN_ID
 
-DB_PATH = os.path.join(common.get_home_dir(), ".unmanic", "userdata", PLUGIN_ID, "timestamps.db")
+DB_PATH = os.path.join(common.get_home_dir(), '.unmanic', 'userdata', PLUGIN_ID, 'timestamps.db')
 
 _local = threading.local()
 
@@ -16,7 +16,7 @@ _local = threading.local()
 # NOTE: only reuse in short-lived threads like FileTester
 def _get_connection(reuse_connection=False) -> sqlite3.Connection:
     if reuse_connection:
-        if not hasattr(_local, "connection"):
+        if not hasattr(_local, 'connection'):
             _local.connection = sqlite3.connect(DB_PATH)
         return _local.connection
     else:
@@ -25,27 +25,27 @@ def _get_connection(reuse_connection=False) -> sqlite3.Connection:
 
 def _check_column_exists(conn: sqlite3.Connection, table_name: str, column_name: str):
     cursor = conn.cursor()
-    cursor.execute(f"PRAGMA table_info({table_name})")
+    cursor.execute(f'PRAGMA table_info({table_name})')
     columns = cursor.fetchall()
 
     return any(column[1] == column_name for column in columns)
 
 
 def _perform_maintenance(cur: sqlite3.Cursor):
-    mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
+    mode = os.getenv('UNMANIC_SQLITE_MAINTENANCE')
     if not mode:
-        mode = "basic"
+        mode = 'basic'
 
-    if mode not in ["off", "basic", "full"]:
+    if mode not in ['off', 'basic', 'full']:
         logger.error(f"Unknown UNMANIC_SQLITE_MAINTENANCE mode '{mode}'")
         return
 
-    if mode == "off":
+    if mode == 'off':
         return
 
     cur.execute('PRAGMA wal_checkpoint(TRUNCATE)')
     cur.execute('PRAGMA optimize')
-    if mode == "full":
+    if mode == 'full':
         cur.execute('VACUUM')
 
 
@@ -58,17 +58,17 @@ def _init():
     # attempt to migrate old database from the sibling plugin
     # remove this a year after discontinuing the other plugin
     if not os.path.exists(DB_PATH):
-        old_db = os.path.join(common.get_home_dir(), ".unmanic",
-                              "userdata", "kmarius_incremental_scan_db", "timestamps.db")
+        old_db = os.path.join(common.get_home_dir(), '.unmanic',
+                              'userdata', 'kmarius_incremental_scan_db', 'timestamps.db')
         if os.path.exists(old_db):
-            logger.info(f"Migrating database from kmarius_incremental_scan_db")
+            logger.info(f'Migrating database from kmarius_incremental_scan_db')
             os.rename(old_db, DB_PATH)
 
     with _get_connection() as conn:
         cur = conn.cursor()
-        if not _check_column_exists(conn, "timestamps", "library_id"):
+        if not _check_column_exists(conn, 'timestamps', 'library_id'):
             logger.info("Table 'timestamps' does not exists or is missing the 'library_id' column. (Re-)creating...")
-            cur.execute("DROP TABLE IF EXISTS timestamps")
+            cur.execute('DROP TABLE IF EXISTS timestamps')
 
         cur.execute('''
                     CREATE TABLE IF NOT EXISTS timestamps
@@ -80,7 +80,7 @@ def _init():
                         PRIMARY KEY (library_id, path)
                     )''')
 
-        if not _check_column_exists(conn, "timestamps", "last_update"):
+        if not _check_column_exists(conn, 'timestamps', 'last_update'):
             logger.info('Creating missing last_update column in table timestamps')
             cur.execute('ALTER TABLE timestamps ADD COLUMN last_update INTEGER DEFAULT 0')
             cur.execute('UPDATE timestamps SET last_update = mtime')
@@ -105,7 +105,7 @@ def put(library_id: int, path: str, mtime: int, reuse_connection=False):
 
 
 def put_many(values: Collection[Tuple[int, str, int]]):
-    """list of tuples: (library_id, path, mtime)"""
+    '''list of tuples: (library_id, path, mtime)'''
     if not values:
         return
     now = int(time.time())
@@ -123,7 +123,7 @@ def put_many(values: Collection[Tuple[int, str, int]]):
 def get(library_id: int, path: str, reuse_connection=False):
     with _get_connection(reuse_connection) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?", (library_id, path))
+        cur.execute('SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?', (library_id, path))
         row = cur.fetchone()
         mtime = row[0] if row else None
         return mtime
@@ -137,14 +137,14 @@ def get_many(library_id: int, paths: list[str]):
         # I tested this with a temp relation instead of a loop and int was faster at > 15 items per query
         for path in paths:
             cur.execute(
-                "SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?", (library_id, path))
+                'SELECT mtime FROM timestamps WHERE library_id = ? AND path = ?', (library_id, path))
             row = cur.fetchone()
             mtimes.append(row[0] if row else None)
     return mtimes
 
 
 def reset_oldest(library_id: int, fraction: float) -> int:
-    """Does not modify last_update"""
+    '''Does not modify last_update'''
     if fraction <= 0:
         return 0
     with _get_connection() as conn:

@@ -11,17 +11,17 @@ from kmarius_video_handler.lib.types import *
 
 class Settings(PluginSettings):
     settings = {
-        "target_bitrate": 3000,
-        "bitrate_cutoff": 4500,
+        'target_bitrate': 3000,
+        'bitrate_cutoff': 4500,
     }
     form_settings = {
-        "target_bitrate": {
-            "label": "Target bitrate (kbit/s)",
-            "description": "Target bitrate passed to the h264 encoder",
+        'target_bitrate': {
+            'label': 'Target bitrate (kbit/s)',
+            'description': 'Target bitrate passed to the h264 encoder',
         },
-        "bitrate_cutoff": {
-            "label": "Bitrate cutoff (kbit/s)",
-            "description": "Won't re-encode if current bitrate is smaller than this value.",
+        'bitrate_cutoff': {
+            'label': 'Bitrate cutoff (kbit/s)',
+            'description': "Won't re-encode if current bitrate is smaller than this value.",
         },
     }
 
@@ -48,17 +48,17 @@ def _get_bitrate(stream_info: dict, path: str) -> Optional[int]:
 
 # change everything that is not 8bit h264 with a reasonable bit rate
 def needs_encoding(stream_info: dict, path: str, bitrate_cutoff: int) -> bool:
-    if stream_info["codec_name"] != "h264":
+    if stream_info['codec_name'] != 'h264':
         return True
 
     bit_rate = _get_bitrate(stream_info, path)
     if bit_rate is None:
-        logger.error(f"Could not determine bitrate for {path}")
+        logger.error(f'Could not determine bitrate for {path}')
 
     if bit_rate is not None and bit_rate > bitrate_cutoff:
         return True
 
-    if "pix_fmt" in stream_info and stream_info["pix_fmt"] != "yuv420p":
+    if 'pix_fmt' in stream_info and stream_info['pix_fmt'] != 'yuv420p':
         return True
 
     return False
@@ -68,8 +68,8 @@ def video_stream_mapping(
         stream_info: dict, idx: int, path: str,
         target_bitrate: int, bitrate_cutoff: int) -> Optional[dict]:
     # remove images
-    codec_name = stream_info["codec_name"]
-    if codec_name in ["png", "mjpeg"]:
+    codec_name = stream_info['codec_name']
+    if codec_name in ['png', 'mjpeg']:
         return {
             'stream_mapping': [],
             'stream_encoding': [],
@@ -77,9 +77,9 @@ def video_stream_mapping(
 
     if needs_encoding(stream_info, path, bitrate_cutoff):
         stream_encoding = [
-            f'-c:v:{idx}', "libx264",
-            "-pix_fmt", "yuv420p",
-            f"-b:v:{idx}", f"{target_bitrate}"
+            f'-c:v:{idx}', 'libx264',
+            '-pix_fmt', 'yuv420p',
+            f'-b:v:{idx}', f'{target_bitrate}'
         ]
         return {
             'stream_mapping': ['-map', f'0:v:{idx}'],
@@ -96,7 +96,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
     target_bitrate = settings.get_setting('target_bitrate') * 1000
     bitrate_cutoff = settings.get_setting('bitrate_cutoff') * 1000
 
-    video_streams = task_data["streams"]["video"]
+    video_streams = task_data['streams']['video']
     video_mappings = {}
 
     path = data['path']
@@ -105,6 +105,6 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         if mapping is not None:
             video_mappings[idx] = mapping
 
-    task_data["mappings"]["video"] = video_mappings
+    task_data['mappings']['video'] = video_mappings
     if video_mappings:
-        task_data["add_file_to_pending_tasks"] = True
+        task_data['add_file_to_pending_tasks'] = True

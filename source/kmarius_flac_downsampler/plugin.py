@@ -9,22 +9,22 @@ from kmarius_flac_downsampler.lib.types import FileTestData, ProcessItemData
 
 class Settings(PluginSettings):
     settings = {
-        "target_sample_rate": 44100,
-        "target_sample_fmt": 's16',
-        "sample_rate_threshold": 48000,
+        'target_sample_rate': 44100,
+        'target_sample_fmt': 's16',
+        'sample_rate_threshold': 48000,
     }
     form_settings = {
-        "target_sample_rate": {
-            "label": "Fallback sample rate",
-            "description": "Sample rate to use if the input is not a multiple of 48000 or 44100."
+        'target_sample_rate': {
+            'label': 'Fallback sample rate',
+            'description': 'Sample rate to use if the input is not a multiple of 48000 or 44100.'
         },
-        "target_sample_fmt": {
-            "label": "Sample format",
-            "description": "See `ffmpeg -sample_fmts`",
+        'target_sample_fmt': {
+            'label': 'Sample format',
+            'description': 'See `ffmpeg -sample_fmts`',
         },
-        "sample_rate_threshold": {
-            "label": "Sample rate threshold; ",
-            "description": "Rates higher than this value will be downsampled."
+        'sample_rate_threshold': {
+            'label': 'Sample rate threshold; ',
+            'description': 'Rates higher than this value will be downsampled.'
         }
     }
 
@@ -33,14 +33,14 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
     settings = Settings(library_id=data.get('library_id'))
     thresh = settings.get_setting('sample_rate_threshold')
 
-    path = data.get("path")
+    path = data.get('path')
     ext = os.path.splitext(path)[1][1:].lower()
-    if ext != "flac":
+    if ext != 'flac':
         return
 
     probe = Probe(logger, allowed_mimetypes=['audio'])
-    if "ffprobe" in data["shared_info"]:
-        probe.set_probe(data["shared_info"]["ffprobe"])
+    if 'ffprobe' in data['shared_info']:
+        probe.set_probe(data['shared_info']['ffprobe'])
     else:
         if not probe.file(path):
             return
@@ -49,9 +49,9 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
         if 'sample_rate' in stream_info:
             if int(stream_info['sample_rate']) > thresh:
                 data['add_file_to_pending_tasks'] = True
-                data["issues"].append({
-                    "id": PLUGIN_ID,
-                    "message": f"Sample rate too high: {path}"
+                data['issues'].append({
+                    'id': PLUGIN_ID,
+                    'message': f'Sample rate too high: {path}'
                 })
 
 
@@ -61,11 +61,11 @@ def on_worker_process(data: ProcessItemData, **kwargs):
     sample_rate = settings.get_setting('target_sample_rate')
     sample_fmt = settings.get_setting('target_sample_fmt')
 
-    file_in = data.get("file_in")
-    file_out = data.get("file_out")
+    file_in = data.get('file_in')
+    file_out = data.get('file_out')
 
     ext = os.path.splitext(file_in)[1][1:].lower()
-    if ext != "flac":
+    if ext != 'flac':
         return
 
     probe = Probe(logger, allowed_mimetypes=['audio'])
@@ -86,7 +86,7 @@ def on_worker_process(data: ProcessItemData, **kwargs):
         'ffmpeg', '-i', file_in,
         '-map', '0', '-map_metadata', '0',
         '-c', 'copy',  # keeps album covers as is
-        # "-af", "aresample=resampler=soxr", # not avaliable in the container image
+        # '-af', 'aresample=resampler=soxr', # not avaliable in the container image
         '-sample_fmt', sample_fmt, '-ar', str(sample_rate),
         file_out,
     ]

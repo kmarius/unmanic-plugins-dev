@@ -9,12 +9,12 @@ from kmarius_interleave_mp4.lib.mp4box import MP4Box
 
 class Settings(PluginSettings):
     settings = {
-        "interleave_parameter": 500,
+        'interleave_parameter': 500,
     }
     form_settings = {
-        "interleave_parameter": {
-            "label": "Interleave parameter in ms",
-            "description": "Processing is triggered if the current interleaving differs by more than one third of this value.",
+        'interleave_parameter': {
+            'label': 'Interleave parameter in ms',
+            'description': 'Processing is triggered if the current interleaving differs by more than one third of this value.',
         }
     }
 
@@ -23,66 +23,66 @@ class Settings(PluginSettings):
 
 
 def is_interleaved(mp4box: dict, param: int) -> bool:
-    for track in mp4box["tracks"]:
-        if "chunk_duration_average" in track:
-            chunk_duration_average = track["chunk_duration_average"]
+    for track in mp4box['tracks']:
+        if 'chunk_duration_average' in track:
+            chunk_duration_average = track['chunk_duration_average']
             if chunk_duration_average < param * 2 / 3 or chunk_duration_average > param * 4 / 3:
                 return False
     return True
 
 
 def is_progressive(mp4box: dict) -> bool:
-    return mp4box.get("progressive", False)
+    return mp4box.get('progressive', False)
 
 
 def on_library_management_file_test(data: FileTestData, **kwargs):
-    library_id = data["library_id"]
+    library_id = data['library_id']
     settings = Settings(library_id=library_id)
-    param = int(settings.get_setting("interleave_parameter"))
+    param = int(settings.get_setting('interleave_parameter'))
 
-    path = data["path"]
+    path = data['path']
 
     ext = os.path.splitext(path)[1][1:].lower()
-    if ext != "mp4":
+    if ext != 'mp4':
         return
 
-    if "mp4box" in data["shared_info"]:
-        mp4box = data["shared_info"]["mp4box"]
+    if 'mp4box' in data['shared_info']:
+        mp4box = data['shared_info']['mp4box']
     else:
         mp4box = MP4Box.probe(path)
         if mp4box is not None:
-            data["shared_info"]["mp4box"] = mp4box
+            data['shared_info']['mp4box'] = mp4box
 
     if mp4box is None:
-        logger.error(f"No mp4box info: path={path}")
+        logger.error(f'No mp4box info: path={path}')
         return
 
     if not is_progressive(mp4box) or not is_interleaved(mp4box, param):
-        data["issues"].append({
+        data['issues'].append({
             'id': PLUGIN_ID,
-            'message': f"Not interleaved: library_id={library_id} path={path}",
+            'message': f'Not interleaved: library_id={library_id} path={path}',
         })
-        data["add_file_to_pending_tasks"] = True
+        data['add_file_to_pending_tasks'] = True
 
 
 def on_worker_process(data: ProcessItemData, **kwargs):
-    settings = Settings(library_id=data["library_id"])
-    param = int(settings.get_setting("interleave_parameter"))
+    settings = Settings(library_id=data['library_id'])
+    param = int(settings.get_setting('interleave_parameter'))
 
-    file_in = data.get("file_in")
+    file_in = data.get('file_in')
     file_out = data.get('file_out')
 
     ext = os.path.splitext(file_in)[1][1:].lower()
-    if ext != "mp4":
+    if ext != 'mp4':
         return
 
     mp4box = MP4Box.probe(file_in)
     if mp4box is None:
-        logger.error(f"No mp4box info: path={file_in}")
+        logger.error(f'No mp4box info: path={file_in}')
         return
 
     if is_progressive(mp4box) and is_interleaved(mp4box, param):
-        logger.info(f"No processing required: path={file_in}")
+        logger.info(f'No processing required: path={file_in}')
         return
 
     data['exec_command'] = MP4Box.build_command(file_in, file_out, param)
@@ -92,32 +92,32 @@ def on_worker_process(data: ProcessItemData, **kwargs):
 # very rarely a file is not interleaved after processing and has very strange interleaving chunk durations
 # i'd just rather replace those files than have the re-processed again
 def on_postprocessor_task_results(data: TaskResultData, **kwargs):
-    if data["task_processing_success"] and data["file_move_processes_success"]:
-        library_id = data["library_id"]
+    if data['task_processing_success'] and data['file_move_processes_success']:
+        library_id = data['library_id']
         settings = Settings(library_id=library_id)
-        param = int(settings.get_setting("interleave_parameter"))
+        param = int(settings.get_setting('interleave_parameter'))
 
-        paths = data["destination_files"]
+        paths = data['destination_files']
         if not paths:
             path = data['source_data']['abspath']
         else:
             path = paths[0]
 
         ext = os.path.splitext(path)[1][1:].lower()
-        if ext != "mp4":
+        if ext != 'mp4':
             return
 
         mp4box = MP4Box.probe(path)
         if mp4box is None:
-            logger.error(f"No mp4box info: path={path}")
+            logger.error(f'No mp4box info: path={path}')
             return
 
         bad = False
         if not is_progressive(mp4box):
-            logger.error(f"Not progressive after processing: library_id={library_id} path={file_in}")
+            logger.error(f'Not progressive after processing: library_id={library_id} path={file_in}')
             bad = True
         if not is_interleaved(mp4box, param):
-            logger.error(f"Not interleaved after processing: library_id={library_id} path={file_in}")
+            logger.error(f'Not interleaved after processing: library_id={library_id} path={file_in}')
             bad = True
 
         if bad:

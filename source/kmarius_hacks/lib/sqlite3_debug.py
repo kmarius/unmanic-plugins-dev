@@ -18,7 +18,7 @@ enable_traceback = False
 
 
 class DebugCursor(sqlite3.Cursor):
-    _logger = UnmanicLogging.get_logger("DebugCursor")
+    _logger = UnmanicLogging.get_logger('DebugCursor')
 
     def execute(self, sql, params=()):
         global _window, _last_print, explain_next_query
@@ -30,7 +30,7 @@ class DebugCursor(sqlite3.Cursor):
         if enable_explain or enable_explain_next:
             if enable_explain_next:
                 enable_explain_next = False
-            self._logger.info("---")
+            self._logger.info('---')
             if not enable_logging:
                 self._logger.info(sql)
             for *_, ex in super().execute('EXPLAIN QUERY PLAN ' + sql, params):

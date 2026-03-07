@@ -9,7 +9,7 @@ from . import logger
 
 
 class MetadataProvider:
-    name = "None"
+    name = 'None'
     """Used as table name and field name in the shared data dict"""
 
     default_enabled = False
@@ -24,11 +24,11 @@ class MetadataProvider:
 
     @classmethod
     def setting_name_enabled(cls):
-        return f"cache_{cls.name}"
+        return f'cache_{cls.name}'
 
 
 class FFprobeProvider(MetadataProvider):
-    name = "ffprobe"
+    name = 'ffprobe'
     default_enabled = True
 
     @staticmethod
@@ -40,25 +40,25 @@ class FFprobeProvider(MetadataProvider):
 
 
 class MediaInfoProvider(MetadataProvider):
-    name = "mediainfo"
+    name = 'mediainfo'
     default_enabled = False
 
     @staticmethod
     def run_prog(path: str) -> Optional[dict]:
         try:
-            command = ["mediainfo", "--output=JSON", path]
+            command = ['mediainfo', '--output=JSON', path]
             pipe = subprocess.Popen(
                 command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             out, err = pipe.communicate()
 
-            return json.loads(out.decode("utf-8"))
+            return json.loads(out.decode('utf-8'))
         except Exception as e:
             logger.error(e)
             return None
 
 
 class MP4BoxProvider(MetadataProvider):
-    name = "mp4box"
+    name = 'mp4box'
     default_enabled = False
 
     @staticmethod
@@ -72,7 +72,7 @@ class MP4BoxProvider(MetadataProvider):
     @staticmethod
     def is_admissible(path: str) -> bool:
         ext = os.path.splitext(path)[1][1:].lower()
-        return ext == "mp4"
+        return ext == 'mp4'
 
 
 PROVIDERS = [

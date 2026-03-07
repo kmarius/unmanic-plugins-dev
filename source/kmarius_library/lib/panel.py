@@ -19,12 +19,12 @@ from .types import *
 
 
 def critical(f):
-    """Decorator to allow only one thread to execute this function at a time."""
+    '''Decorator to allow only one thread to execute this function at a time.'''
     lock = threading.Lock()
 
     def wrapped(*args, **kwargs):
         if not lock.acquire(blocking=False):
-            logger.error("Could not acquire lock")
+            logger.error('Could not acquire lock')
             return
         try:
             f(*args, **kwargs)
@@ -52,20 +52,20 @@ def _get_library_paths() -> Dict[int, str]:
 
 
 def _validate_path(path: str, library_path: str) -> bool:
-    return path.startswith("/") and "/.." not in path and path.startswith(library_path)
+    return path.startswith('/') and '/..' not in path and path.startswith(library_path)
 
 
 # possibly make this configurable
 def _get_icon(name: str) -> str:
     ext = os.path.splitext(name)[1][1:].lower()
-    if ext in ["mp4", "mkv", "webm", "avi", "mov", "flv"]:
-        return "bi bi-film"
-    elif ext in ["mp3", "m4a", "flac", "opus", "ogg"]:
-        return "bi bi-music-note-beamed"
-    elif ext in ["jpg", "png", "bmp"]:
-        return "bi bi-image"
+    if ext in ['mp4', 'mkv', 'webm', 'avi', 'mov', 'flv']:
+        return 'bi bi-film'
+    elif ext in ['mp3', 'm4a', 'flac', 'opus', 'ogg']:
+        return 'bi bi-music-note-beamed'
+    elif ext in ['jpg', 'png', 'bmp']:
+        return 'bi bi-image'
     else:
-        return "bi bi-file-earmark"
+        return 'bi bi-file-earmark'
 
 
 def _test_files_in_lib(library_id: int, items: Collection[str]):
@@ -100,7 +100,7 @@ def _test_files_in_lib(library_id: int, items: Collection[str]):
     threads = []
 
     for i in range(num_threads):
-        tester = FileTesterThread(f"kmarius-file-tester-{library_id}-{i}",
+        tester = FileTesterThread(f'kmarius-file-tester-{library_id}-{i}',
                                   files_to_test, files_to_process, status_updates,
                                   library_id, event)
         tester.daemon = True
@@ -142,13 +142,13 @@ def _test_files_in_lib(library_id: int, items: Collection[str]):
     frontend_messages.remove_item('libraryScanProgress')
 
     # ensure all file_queued events have been emitted
-    if hasattr(scanner, "scheduledtasks"):
+    if hasattr(scanner, 'scheduledtasks'):
         while not scanner.scheduledtasks.empty():
             event.wait(0.25)
 
     values = []
     for path, mtime in get_files_tested(library_id, clear=True).items():
-        logger.info(f"Updating timestamp library_id={library_id} path={path} to {mtime} (no processing requested)")
+        logger.info(f'Updating timestamp library_id={library_id} path={path} to {mtime} (no processing requested)')
         values.append((library_id, path, mtime))
     timestamps.put_many(values)
 
@@ -160,8 +160,8 @@ def _test_files_thread(items_per_lib: Dict[int, Collection[str]]):
 
 
 def _unpack_items(body: dict) -> list[dict]:
-    if "arr" in body:
-        return body["arr"]
+    if 'arr' in body:
+        return body['arr']
     else:
         return [body]
 
@@ -181,14 +181,14 @@ class Panel:
     # there is no other way to access a new library through the panel
     def _assert_configuration_valid(self):
         if not self.settings.is_valid():
-            logger.info("Configuration invalid. Recreating...")
+            logger.info('Configuration invalid. Recreating...')
             self.settings = self.settings_cl()
 
     def _get_allowed_extensions(self, library_id: int) -> list[str] | None:
         if library_id not in self._allowed_extensions:
-            extensions = self.settings.get_setting(f"library_{library_id}_extensions").split(",")
-            extensions = [ext.strip().lstrip(".") for ext in extensions]
-            extensions = [ext for ext in extensions if ext != ""]
+            extensions = self.settings.get_setting(f'library_{library_id}_extensions').split(',')
+            extensions = [ext.strip().lstrip('.') for ext in extensions]
+            extensions = [ext for ext in extensions if ext != '']
             self._allowed_extensions[library_id] = extensions
         return self._allowed_extensions[library_id]
 
@@ -202,9 +202,9 @@ class Panel:
     def _get_ignore_patterns(self, library_id: int) -> list[re.Pattern] | None:
         if library_id not in self._ignore_patterns:
             patterns = []
-            for pattern in self.settings.get_setting(f"library_{library_id}_ignored_paths").splitlines():
+            for pattern in self.settings.get_setting(f'library_{library_id}_ignored_paths').splitlines():
                 pattern = pattern.strip()
-                if pattern and not pattern.startswith("#"):
+                if pattern and not pattern.startswith('#'):
                     patterns.append(re.compile(pattern))
             self._ignore_patterns[library_id] = patterns
         return self._ignore_patterns[library_id]
@@ -241,11 +241,11 @@ class Panel:
         distinct_per_lib = {}
 
         for item in items:
-            library_id = item["library_id"]
-            path = item["path"]
+            library_id = item['library_id']
+            path = item['path']
 
             if not _validate_path(path, library_paths[library_id]):
-                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
+                raise Exception(f'Invalid path: library_id={library_id}, path={path}')
 
             if not library_id in distinct_per_lib:
                 distinct_per_lib[library_id] = set()
@@ -266,17 +266,17 @@ class Panel:
 
         scanner = _get_thread(LibraryScannerManager)
         if scanner is None:
-            raise Exception(f"Could not get LibraryScanner thread")
+            raise Exception(f'Could not get LibraryScanner thread')
 
         distinct = set()
 
         for item in items:
-            library_id = item["library_id"]
-            path = item["path"]
-            priority_score = item["priority_score"]
+            library_id = item['library_id']
+            path = item['path']
+            priority_score = item['priority_score']
 
             if not _validate_path(path, library_paths[library_id]):
-                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
+                raise Exception(f'Invalid path: library_id={library_id}, path={path}')
 
             if os.path.isdir(path):
                 for path in self._walk_library(library_id, path):
@@ -298,7 +298,7 @@ class Panel:
                 for entry in entries:
                     name = entry.name
                     # we unconditionally skip all dotfiles and -dirs
-                    if name.startswith("."):
+                    if name.startswith('.'):
                         continue
 
                     abspath = os.path.abspath(os.path.join(path, name))
@@ -307,64 +307,64 @@ class Panel:
                         if entry.is_dir():
                             if lazy:
                                 children.append({
-                                    "title": name,
-                                    "library_id": library_id,
-                                    "path": abspath,
-                                    "lazy": True,
-                                    "type": "folder",
+                                    'title': name,
+                                    'library_id': library_id,
+                                    'path': abspath,
+                                    'lazy': True,
+                                    'type': 'folder',
                                 })
                             else:
                                 child = self._load_subtree(abspath, name, library_id,
                                                            lazy=False, hide_empty=hide_empty,
                                                            prune_ignored=prune_ignored, timestamp_cache=timestamp_cache)
-                                if not (hide_empty and len(child["children"]) == 0):
+                                if not (hide_empty and len(child['children']) == 0):
                                     children.append(child)
                         else:
                             if self._is_in_library(library_id, abspath):
                                 file_info = os.stat(abspath)
                                 files.append({
-                                    "title": name,
-                                    "library_id": library_id,
-                                    "path": abspath,
-                                    "mtime": int(file_info.st_mtime),
-                                    "size": int(file_info.st_size),
-                                    "icon": _get_icon(name),
+                                    'title': name,
+                                    'library_id': library_id,
+                                    'path': abspath,
+                                    'mtime': int(file_info.st_mtime),
+                                    'size': int(file_info.st_size),
+                                    'icon': _get_icon(name),
                                 })
 
-            children.sort(key=lambda c: c["title"])
-            files.sort(key=lambda c: c["title"])
+            children.sort(key=lambda c: c['title'])
+            files.sort(key=lambda c: c['title'])
 
             if files:
                 if timestamp_cache:
                     for file in files:
-                        file["timestamp"] = timestamp_cache.get(file["path"], None)
+                        file['timestamp'] = timestamp_cache.get(file['path'], None)
                 else:
-                    paths = [file["path"] for file in files]
+                    paths = [file['path'] for file in files]
                     for i, timestamp in enumerate(timestamps.get_many(library_id, paths)):
                         files[i]['timestamp'] = timestamp
 
             children += files
 
         return {
-            "title": title,
-            "children": children,
-            "library_id": library_id,
-            "path": path,
-            "type": "folder",
+            'title': title,
+            'children': children,
+            'library_id': library_id,
+            'path': path,
+            'type': 'folder',
         }
 
     def _get_subtree(self, library_id, path, title) -> dict:
         library = Libraries().select().where(Libraries.id == library_id).first()
 
         if library.enable_remote_only:
-            raise Exception("Library is remote only")
+            raise Exception('Library is remote only')
 
-        if not path.startswith(library.path) or "/.." in path:
-            raise Exception("Invalid path")
+        if not path.startswith(library.path) or '/..' in path:
+            raise Exception('Invalid path')
 
-        lazy = self.settings.get_setting(f"library_{library.id}_lazy_load")
-        hide_empty = self.settings.get_setting(f"library_{library_id}_hide_empty")
-        prune_ignored = self.settings.get_setting(f"library_{library_id}_prune_ignored")
+        lazy = self.settings.get_setting(f'library_{library.id}_lazy_load')
+        hide_empty = self.settings.get_setting(f'library_{library_id}_hide_empty')
+        prune_ignored = self.settings.get_setting(f'library_{library_id}_prune_ignored')
 
         # if we are loading an entire library it is much faster to create a hashmap of all files and timestamps
         timestamp_cache = None
@@ -378,11 +378,11 @@ class Panel:
         library_paths = _get_library_paths()
         distinct = set()
         for item in items:
-            library_id = item["library_id"]
-            path = item["path"]
+            library_id = item['library_id']
+            path = item['path']
 
             if not _validate_path(path, library_paths[library_id]):
-                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
+                raise Exception(f'Invalid path: library_id={library_id}, path={path}')
 
             if os.path.isdir(path):
                 for p in self._walk_library(library_id, path):
@@ -391,17 +391,17 @@ class Panel:
                 distinct.add((library_id, path, 0))
 
         timestamps.put_many(distinct)
-        logger.info(f"Reset {len(distinct)} timestamps")
+        logger.info(f'Reset {len(distinct)} timestamps')
 
     def _reset_metadata_timestamps(self, items: list[dict]):
         library_paths = _get_library_paths()
         distinct = set()
         for item in items:
-            library_id = item["library_id"]
-            path = item["path"]
+            library_id = item['library_id']
+            path = item['path']
 
             if not _validate_path(path, library_paths[library_id]):
-                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
+                raise Exception(f'Invalid path: library_id={library_id}, path={path}')
 
             if os.path.isdir(path):
                 for p in self._walk_library(library_id, path):
@@ -412,17 +412,17 @@ class Panel:
         count = 0
         for provider in PROVIDERS:
             count += cache.reset_many(provider.name, distinct)
-        logger.info(f"Reset {count} metadata items")
+        logger.info(f'Reset {count} metadata items')
 
     def _update_timestamps(self, items: list[dict]):
         library_paths = _get_library_paths()
         distinct = set()
         for item in items:
-            library_id = item["library_id"]
-            path = item["path"]
+            library_id = item['library_id']
+            path = item['path']
 
             if not _validate_path(path, library_paths[library_id]):
-                raise Exception(f"Invalid path: library_id={library_id}, path={path}")
+                raise Exception(f'Invalid path: library_id={library_id}, path={path}')
 
             if os.path.isdir(path):
                 for p in self._walk_library(library_id, path):
@@ -436,10 +436,10 @@ class Panel:
                 mtime = int(os.path.getmtime(path))
                 values.append((library_id, path, mtime))
             except OSError as e:
-                logger.error(f"{e}: library_id={library_id} path={path}")
+                logger.error(f'{e}: library_id={library_id} path={path}')
 
         timestamps.put_many(values)
-        logger.info(f"Updated {len(values)} timestamps")
+        logger.info(f'Updated {len(values)} timestamps')
 
     @critical
     def _prune_database(self, payload: dict):
@@ -448,15 +448,15 @@ class Panel:
         library_ids = []
         library_paths = _get_library_paths()
 
-        if "library_id" in payload:
-            library_ids.append(payload["library_id"])
+        if 'library_id' in payload:
+            library_ids.append(payload['library_id'])
         else:
             for lib in Libraries().select().where(Libraries.enable_remote_only == False):
                 library_ids.append(lib.id)
 
         num_pruned = 0
         for library_id in library_ids:
-            logger.info(f"Pruning library {library_id}")
+            logger.info(f'Pruning library {library_id}')
 
             paths = []
             for path in timestamps.get_all_paths(library_id):
@@ -468,82 +468,82 @@ class Panel:
             timestamps.remove_paths(library_id, paths)
 
             num_pruned += len(paths)
-        logger.info(f"Pruned {num_pruned} orphans")
+        logger.info(f'Pruned {num_pruned} orphans')
 
     def _get_libraries(self, lazy=True) -> dict:
         self._assert_configuration_valid()
         libraries = []
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             libraries.append({
-                "title": lib.name,
-                "library_id": lib.id,
-                "path": lib.path,
-                "type": "folder",
-                "lazy": lazy,
+                'title': lib.name,
+                'library_id': lib.id,
+                'path': lib.path,
+                'type': 'folder',
+                'lazy': lazy,
             })
 
         return {
-            "children": libraries,
+            'children': libraries,
         }
 
     @staticmethod
     def render_frontend_panel(data: PanelData):
-        data["content_type"] = "text/html"
+        data['content_type'] = 'text/html'
 
         with open(os.path.abspath(
                 os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'index.html'))) as file:
             content = file.read()
-            data['content'] = content.replace("{cache_buster}", str(uuid.uuid4()))
+            data['content'] = content.replace('{cache_buster}', str(uuid.uuid4()))
 
     def render_plugin_api(self, data: PluginApiData):
         data['content_type'] = 'application/json'
 
-        arguments = data["arguments"]
+        arguments = data['arguments']
         for arg, ls in arguments.items():
             arguments[arg] = [val.decode('utf-8') for val in ls]
 
-        if not data["body"]:
+        if not data['body']:
             body = {}
         else:
-            body = json.loads(data["body"].decode('utf-8'))
+            body = json.loads(data['body'].decode('utf-8'))
 
         try:
-            match data["path"], data['method']:
-                case "/test", 'POST':
+            match data['path'], data['method']:
+                case '/test', 'POST':
                     self._test_files(_unpack_items(body))
                 case '/process', 'POST':
                     self._process_files(_unpack_items(body))
                 case '/subtree', 'GET':
-                    data["content"] = self._get_subtree(
-                        int(arguments["library_id"][0]),
-                        arguments["path"][0],
-                        arguments["title"][0]
+                    data['content'] = self._get_subtree(
+                        int(arguments['library_id'][0]),
+                        arguments['path'][0],
+                        arguments['title'][0]
                     )
-                case "/libraries", 'GET':
-                    data["content"] = self._get_libraries()
-                case "/timestamp/reset", 'POST':
+                case '/libraries', 'GET':
+                    data['content'] = self._get_libraries()
+                case '/timestamp/reset', 'POST':
                     self._reset_timestamps(_unpack_items(body))
-                case "/timestamp/update", 'POST':
+                case '/timestamp/update', 'POST':
                     self._update_timestamps(_unpack_items(body))
-                case "/metadata/reset", 'POST':
+                case '/metadata/reset', 'POST':
                     self._reset_metadata_timestamps(_unpack_items(body))
-                case "/prune", 'POST':
+                case '/prune', 'POST':
                     threading.Thread(target=self._prune_database,
                                      args=(body,),
                                      daemon=True).start()
                 case path, method:
-                    data["content"] = {
-                        "success": False,
-                        "error": f"unknown path: {method} {path}",
+                    data['content'] = {
+                        'success': False,
+                        'error': f'unknown path: {method} {path}',
                     }
-                    data["status"] = 404
+                    data['status'] = 404
 
         except Exception as e:
             trace = traceback.format_exc()
             logger.error(trace)
-            data["content"] = {
-                "success": False,
-                "error": str(e),
-                "trace": trace,
+            data['content'] = {
+                'success': False,
+                'error': str(e),
+                'trace': trace,
             }
             data['status'] = 503

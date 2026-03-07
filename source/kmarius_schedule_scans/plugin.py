@@ -12,15 +12,15 @@ from unmanic.libs.unplugins.settings import PluginSettings
 
 from kmarius_schedule_scans.lib import logger, PLUGIN_ID
 
-THREAD_NAME = PLUGIN_ID.replace("_", "-")
+THREAD_NAME = PLUGIN_ID.replace('_', '-')
 
 T = TypeVar('T')
 P = ParamSpec('P')
 
 
 class StoppableThread(threading.Thread):
-    """Thread class with a stop() method. The thread itself has to check
-    regularly for the stopped() condition."""
+    '''Thread class with a stop() method. The thread itself has to check
+    regularly for the stopped() condition.'''
 
     def __init__(self, *args: P.args, **kwargs: P.kwargs):
         super(StoppableThread, self).__init__(*args, **kwargs)
@@ -33,16 +33,16 @@ class StoppableThread(threading.Thread):
         return self._stop_event.is_set()
 
     def sleep(self, seconds: float):
-        """Sleep for some time, or until the thread is stopped."""
+        '''Sleep for some time, or until the thread is stopped.'''
         return self._stop_event.wait(seconds)
 
 
 def _get_timezone() -> str | None:
     try:
-        with open("/etc/timezone") as f:
-            return f.read().strip("\n")
+        with open('/etc/timezone') as f:
+            return f.read().strip('\n')
     except Exception as e:
-        logger.error(f"Could not read /etc/timezone: {e}")
+        logger.error(f'Could not read /etc/timezone: {e}')
         return None
 
 
@@ -50,32 +50,32 @@ class Settings(PluginSettings):
     @staticmethod
     def __build_settings():
         settings = {
-            "timezone": "Europe/Berlin",
+            'timezone': 'Europe/Berlin',
         }
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             settings.update({
-                f"library_{lib.id}_cron_enabled": False,
-                f"library_{lib.id}_scan_time": "03:00",
+                f'library_{lib.id}_cron_enabled': False,
+                f'library_{lib.id}_scan_time': '03:00',
             })
         return settings
 
     @staticmethod
     def __build_form_settings():
         form_settings = {
-            "timezone": {
-                "label": "Timezone",
-                "description": "Timezone setting, must be parsable by pytz (e.g. UTC or Europe/Berlin)",
+            'timezone': {
+                'label': 'Timezone',
+                'description': 'Timezone setting, must be parsable by pytz (e.g. UTC or Europe/Berlin)',
             },
         }
         for lib in Libraries().select().where(Libraries.enable_remote_only == False):
             form_settings.update({
-                f"library_{lib.id}_cron_enabled": {
-                    "label": f"Enable scans for library '{lib.name}'",
+                f'library_{lib.id}_cron_enabled': {
+                    'label': f"Enable scans for library '{lib.name}'",
                 },
-                f"library_{lib.id}_scan_time": {
-                    "label": f"Scan time(s) for library '{lib.name}' (format: hh:mm[,hh:mm]...)",
-                    "sub_setting": True,
-                    "display": "hidden"
+                f'library_{lib.id}_scan_time': {
+                    'label': f"Scan time(s) for library '{lib.name}' (format: hh:mm[,hh:mm]...)",
+                    'sub_setting': True,
+                    'display': 'hidden'
                 },
             })
         return form_settings
@@ -93,10 +93,10 @@ class Settings(PluginSettings):
             self._PluginSettings__import_configured_settings()
         if self.settings_configured:
             for setting, val in self.settings_configured.items():
-                if setting.endswith("_cron_enabled"):
+                if setting.endswith('_cron_enabled'):
                     if val:
-                        scan_time = setting.replace("_cron_enabled", "_scan_time")
-                        del form_settings[scan_time]["display"]
+                        scan_time = setting.replace('_cron_enabled', '_scan_time')
+                        del form_settings[scan_time]['display']
         return form_settings
 
 
@@ -110,31 +110,31 @@ def _get_thread(clazz: Type[T]) -> Optional[T]:
 def _start_library_scan(library_id: int):
     scanner = _get_thread(LibraryScannerManager)
     if scanner is None:
-        logger.error("Could not get library scanner thread")
+        logger.error('Could not get library scanner thread')
         return
 
     library = Library(library_id)
     if library.get_enable_remote_only():
-        logger.error(f"Scan scheduled but library is remote: {library.get_name()}")
+        logger.error(f'Scan scheduled but library is remote: {library.get_name()}')
         return
 
     if not library.get_enable_scanner():
-        logger.error(f"Scan scheduled but scanner is disabled: {library.get_name()}")
+        logger.error(f'Scan scheduled but scanner is disabled: {library.get_name()}')
         return
 
     # these are somewhat slow because they are not run in the libraryscanner thread
     # and there a locking issue or something
-    logger.info(f"Starting scheduled scan of library {library.get_name()}")
+    logger.info(f'Starting scheduled scan of library {library.get_name()}')
     scanner.scan_library_path(library.get_name(), library.get_path(), library_id)
 
 
 def _convert_time(time_str: str, original_tz_str: str, target_tz_str: str) -> str:
     original_tz = pytz.timezone(original_tz_str)
     target_tz = pytz.timezone(target_tz_str)
-    naive_dt = datetime.strptime(time_str, "%H:%M")
+    naive_dt = datetime.strptime(time_str, '%H:%M')
     original_dt = original_tz.localize(naive_dt)
     target_dt = original_dt.astimezone(target_tz)
-    return target_dt.strftime("%H:%M")
+    return target_dt.strftime('%H:%M')
 
 
 def _scheduler_main():
@@ -143,18 +143,18 @@ def _scheduler_main():
     sched = schedule.Scheduler()
 
     settings = Settings()
-    timezone = settings.get_setting("timezone").strip()
+    timezone = settings.get_setting('timezone').strip()
     container_timezone = _get_timezone()
 
     for lib in Libraries().select().where(Libraries.enable_remote_only == False):
-        if settings.get_setting(f"library_{lib.id}_cron_enabled"):
-            for time_str in settings.get_setting(f"library_{lib.id}_scan_time").split(","):
+        if settings.get_setting(f'library_{lib.id}_cron_enabled'):
+            for time_str in settings.get_setting(f'library_{lib.id}_scan_time').split(','):
                 time_str = time_str.strip()
                 if not time_str:
                     continue
-                if re.match(r"^\d{1}:\d{2}$", time_str):
-                    time_str = "0" + time_str
-                if not re.match(r"^\d{2}:\d{2}$", time_str):
+                if re.match(r'^\d{1}:\d{2}$', time_str):
+                    time_str = '0' + time_str
+                if not re.match(r'^\d{2}:\d{2}$', time_str):
                     logger.error(f"Invalid time format for library {lib.name}: '{time_str}'")
                     continue
                 if container_timezone and timezone:
@@ -162,7 +162,7 @@ def _scheduler_main():
                 sched.every().day.at(time_str).do(_start_library_scan, lib.id)
 
     if not sched.jobs:
-        logger.info("No jobs scheduled, stopping thread.")
+        logger.info('No jobs scheduled, stopping thread.')
         return
 
     while not thread.stopped():
@@ -176,32 +176,32 @@ def _scheduler_main():
                 seconds = int(delay) % 60
 
                 if hours > 0:
-                    hours_str = f"{hours} hour{"s" if hours != 1 else ""} "
+                    hours_str = f'{hours} hour{'s' if hours != 1 else ''} '
                 else:
-                    hours_str = ""
+                    hours_str = ''
 
                 if hours > 0 or minutes > 0:
-                    minutes_str = f"{minutes} minute{"s" if minutes != 1 else ""} "
+                    minutes_str = f'{minutes} minute{'s' if minutes != 1 else ''} '
                 else:
-                    minutes_str = ""
+                    minutes_str = ''
 
-                seconds_str = f"{seconds} second{"s" if seconds != 1 else ""}"
-                logger.info(f"Next action in {hours_str}{minutes_str}{seconds_str}")
+                seconds_str = f'{seconds} second{'s' if seconds != 1 else ''}'
+                logger.info(f'Next action in {hours_str}{minutes_str}{seconds_str}')
 
             thread.sleep(delay)
 
         if not plugins_handler.get_plugin_list_filtered_and_sorted(plugin_id=PLUGIN_ID, length=1):
-            logger.info("Plugin was uninstalled, stopping thread.")
+            logger.info('Plugin was uninstalled, stopping thread.')
             return
 
 
 def _restart_scheduler_thread():
     for thread in threading.enumerate():
-        if thread.name == THREAD_NAME and hasattr(thread, "stop"):
+        if thread.name == THREAD_NAME and hasattr(thread, 'stop'):
             thread.stop()
             thread.join()
     StoppableThread(target=_scheduler_main, name=THREAD_NAME, daemon=True).start()
 
 
-logger.info("Plugin (re-)loaded.")
+logger.info('Plugin (re-)loaded.')
 _restart_scheduler_thread()

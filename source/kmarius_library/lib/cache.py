@@ -10,14 +10,14 @@ from . import PLUGIN_ID, logger
 
 # TODO: function to clean up orphans
 
-DB_PATH = os.path.join(common.get_home_dir(), ".unmanic", "userdata", PLUGIN_ID, "metadata.db")
+DB_PATH = os.path.join(common.get_home_dir(), '.unmanic', 'userdata', PLUGIN_ID, 'metadata.db')
 
 _local = threading.local()
 
 
 def _check_column_exists(conn: sqlite3.Connection, table_name: str, column_name: str):
     cursor = conn.cursor()
-    cursor.execute(f"PRAGMA table_info({table_name})")
+    cursor.execute(f'PRAGMA table_info({table_name})')
     columns = cursor.fetchall()
 
     return any(column[1] == column_name for column in columns)
@@ -26,7 +26,7 @@ def _check_column_exists(conn: sqlite3.Connection, table_name: str, column_name:
 # NOTE: only reuse in short-lived threads like FileTester
 def _get_connection(reuse_connection: bool = False) -> sqlite3.Connection:
     if reuse_connection:
-        if not hasattr(_local, "connection"):
+        if not hasattr(_local, 'connection'):
             _local.connection = sqlite3.connect(DB_PATH)
         return _local.connection
     else:
@@ -34,20 +34,20 @@ def _get_connection(reuse_connection: bool = False) -> sqlite3.Connection:
 
 
 def _perform_maintenance(cur: sqlite3.Cursor):
-    mode = os.getenv("UNMANIC_SQLITE_MAINTENANCE")
+    mode = os.getenv('UNMANIC_SQLITE_MAINTENANCE')
     if not mode:
-        mode = "basic"
+        mode = 'basic'
 
-    if mode not in ["off", "basic", "full"]:
+    if mode not in ['off', 'basic', 'full']:
         logger.error(f"Unknown UNMANIC_SQLITE_MAINTENANCE mode '{mode}'")
         return
 
-    if mode == "off":
+    if mode == 'off':
         return
 
     cur.execute('PRAGMA wal_checkpoint(TRUNCATE)')
     cur.execute('PRAGMA optimize')
-    if mode == "full":
+    if mode == 'full':
         cur.execute('VACUUM')
 
 
@@ -66,8 +66,8 @@ def init(tables: list[str]):
                                data TEXT DEFAULT NULL
                            )''')
 
-            if not _check_column_exists(conn, table, "last_update"):
-                logger.info(f'Creating missing last_update column in table {table}')
+            if not _check_column_exists(conn, table, 'last_update'):
+                logger.info(f"Creating missing 'last_update' column in table {table}")
                 cur.execute(f'ALTER TABLE {table} ADD COLUMN last_update INTEGER NOT NULL DEFAULT 0')
                 cur.execute(f'UPDATE {table} SET last_update = mtime')
 
@@ -80,10 +80,10 @@ def get(table: str, path: str, mtime: int = None, reuse_connection=False) -> Opt
     with _get_connection(reuse_connection) as conn:
         cur = conn.cursor()
         if mtime:
-            cur.execute(f"SELECT data FROM {table} WHERE path = ? AND mtime = ? LIMIT 1",
+            cur.execute(f'SELECT data FROM {table} WHERE path = ? AND mtime = ? LIMIT 1',
                         (path, mtime))
         else:
-            cur.execute(f"SELECT data FROM {table} WHERE path = ? LIMIT 1",
+            cur.execute(f'SELECT data FROM {table} WHERE path = ? LIMIT 1',
                         (path,))
         row = cur.fetchone()
         if row is None or row[0] is None:
@@ -95,10 +95,10 @@ def exists(table: str, path: str, mtime: int = None) -> bool:
     with _get_connection() as conn:
         cur = conn.cursor()
         if mtime:
-            [[count]] = cur.execute(f"SELECT COUNT(*) FROM {table} WHERE path = ? AND mtime = ? LIMIT 1",
+            [[count]] = cur.execute(f'SELECT COUNT(*) FROM {table} WHERE path = ? AND mtime = ? LIMIT 1',
                                     (path, mtime))
         else:
-            [[count]] = cur.execute(f"SELECT COUNT(*) FROM {table} WHERE path = ? LIMIT 1",
+            [[count]] = cur.execute(f'SELECT COUNT(*) FROM {table} WHERE path = ? LIMIT 1',
                                     (path,))
         return count > 0
 
