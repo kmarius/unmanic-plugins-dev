@@ -3,7 +3,7 @@ import subprocess
 import os
 from typing import Optional
 
-from .ffmpeg.probe import Probe
+from kmarius_library.lib.ffmpeg.probe import Probe
 from .mp4box import MP4Box
 from . import logger
 
