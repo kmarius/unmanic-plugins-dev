@@ -140,9 +140,9 @@ def append_issues(library_id: int, path: str, mtime: int, issues: str):
                     current_issues.append(issue)
             if len(current_issues) > initial_len:
                 cur.execute('''UPDATE issues
-                               SET issues = ?
+                               SET (issues, last_update) = (?, ?)
                                WHERE library_id = ?
-                                 AND path = ?''', (','.join(current_issues), library_id, path))
+                                 AND path = ?''', (','.join(current_issues), now, library_id, path))
             return
     insert(library_id, path, mtime, issues)
 
