@@ -4,8 +4,8 @@ import os
 from unmanic.libs.unplugins.settings import PluginSettings
 
 from kmarius_executor.lib import init_task_data
-from kmarius_executor.lib.ffmpeg import StreamMapper, Parser, Probe
 
+from kmarius_subtitle_handler.lib.ffmpeg import StreamMapper, Parser, Probe
 from kmarius_subtitle_handler.lib.types import *
 from kmarius_subtitle_handler.lib import logger
 
