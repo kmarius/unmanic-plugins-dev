@@ -27,18 +27,21 @@ class Settings(PluginSettings):
 
 
 def _get_bitrate(stream_info: dict, path: str) -> Optional[int]:
-    if "bit_rate" in stream_info:
-        return int(stream_info["bit_rate"])
-    if "tags" in stream_info:
-        tags = stream_info["tags"]
-        for key in tags.keys():
-            if re.match("BPS.*", key):
-                return int(tags[key])
-    cmd = ["mkvinfo", "-t", path]
-    output = subprocess.run(cmd, capture_output=True)
-    stream_index = stream_info["index"]
-    for line in str(output.stdout).split("\\n"):
-        if line.startswith(f"Statistics for track number {stream_index + 1}:"):
+    if 'bit_rate' in stream_info:
+        return int(stream_info['bit_rate'])
+    if 'tags' in stream_info:
+        for key, val in stream_info['tags'].items():
+            if key.startswith('BPS'):
+                return int(val)
+    stream_index = stream_info['index']
+    proc = subprocess.Popen(['mkvinfo', '-t', path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # Example:
+    # Statistics for track number 1: number of blocks: 138031; size in bytes: 2127736369; duration in seconds: 5757.041708333; approximate bitrate in bits/second: 2956707
+    pattern = bytes(f'Statistics for track number {stream_index + 1}:', 'utf-8')
+    for line in proc.stdout:
+        if line.startswith(pattern):
+            proc.terminate()
+            line = line.decode('utf-8').strip()
             return int(line.split()[-1])
     return None
 
