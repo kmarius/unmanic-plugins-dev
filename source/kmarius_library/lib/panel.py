@@ -502,10 +502,11 @@ class Panel:
     def render_frontend_panel(data: PanelData):
         data['content_type'] = 'text/html'
 
-        with open(os.path.abspath(
-                os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'index.html'))) as file:
+        with (open(os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'index.html'))) as file):
             content = file.read()
-            data['content'] = content.replace('{cache_buster}', str(uuid.uuid4()))
+            content = content.replace('ENABLE_EXTENDED_ACTIONS = false', 'ENABLE_EXTENDED_ACTIONS = true')
+            content = content.replace('{cache_buster}', str(uuid.uuid4()))
+            data['content'] = content
 
     def render_plugin_api(self, data: PluginApiData):
         data['content_type'] = 'application/json'
