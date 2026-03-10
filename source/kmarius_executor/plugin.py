@@ -47,6 +47,22 @@ class PluginStreamMapper(StreamMapper):
         return self.mappings[stream_type][stream_id]
 
 
+# this catches some malformed hevc (?) in mkv that can result in ffmpeg
+# creating broken files that can not be repaired
+# TODO: lets see if this test works with different codecs/containers of if we should restrict it to mkv
+def _mkv_remux_looks_ok(path: str, mappings: dict) -> bool:
+    for i, mapping in mappings.items():
+        if mapping['stream_encoding']:
+            # this means we are not just remuxing, which will work fine
+            return True
+
+    command = [
+        'ffmpeg', '-y', '-t', '1', '-i', path, '-c', 'copy', '-map', '0', '-sn', '-dn', '-f', 'matroska', '/dev/null'
+    ]
+    proc = subprocess.run(command)
+    return proc.returncode == 0
+
+
 def on_library_management_file_test(data: FileTestData, **kwargs):
     task_data = init_task_data(data)
     library_id = data.get('library_id')
@@ -86,6 +102,9 @@ def on_worker_process(data: ProcessItemData, **kwargs):
         file_out = data.get('file_out')
 
         if needs_remux:
+            if not _mkv_remux_looks_ok(file_in, task_data['mappings'].get('video', {})):
+                data['exec_command'] = ['false', 'File is possibly broken, will not remux:', file_in]
+                return
             stem, _ = os.path.splitext(file_out)
             file_out = f'{stem}.mp4'
             data['file_out'] = file_out

@@ -157,8 +157,9 @@ def on_worker_process(data: ProcessItemData, **kwargs):
     mapper.set_settings(settings)
     mapper.set_probe(probe)
 
-    original_stem, _ = os.path.splitext(data.get('original_file_path'))
-    original_file_directory = os.path.dirname(data.get('original_file_path'))
+    original_file = data.get('original_file_path')
+    original_stem, _ = os.path.splitext(original_file)
+    original_file_directory = os.path.dirname(original_file)
 
     if mapper.streams_need_processing():
         mapper.set_input_file(path)
