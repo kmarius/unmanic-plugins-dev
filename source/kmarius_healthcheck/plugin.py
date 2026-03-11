@@ -136,7 +136,7 @@ def on_library_management_file_test(data: FileTestData, **kwargs):
     else:
         logger.info(f'Issues for {path}: {', '.join(file_issues)}')
         mtime = int(os.path.getmtime(path))
-        issues_db.insert(library_id, path, mtime, ','.join(file_issues))
+        issues_db.append_issues(library_id, path, mtime, ','.join(file_issues))
 
 
 def emit_postprocessor_complete(data: PostprocessorCompleteData, **kwargs):
