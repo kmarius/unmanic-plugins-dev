@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 from unmanic.libs.unplugins.settings import PluginSettings
 
