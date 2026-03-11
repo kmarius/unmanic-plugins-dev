@@ -114,10 +114,10 @@ def on_postprocessor_task_results(data: TaskResultData, **kwargs):
 
         bad = False
         if not is_progressive(mp4box):
-            logger.error(f'Not progressive after processing: library_id={library_id} path={file_in}')
+            logger.error(f'Not progressive after processing: library_id={library_id} path={path}')
             bad = True
         if not is_interleaved(mp4box, param):
-            logger.error(f'Not interleaved after processing: library_id={library_id} path={file_in}')
+            logger.error(f'Not interleaved after processing: library_id={library_id} path={path}')
             bad = True
 
         if bad:
