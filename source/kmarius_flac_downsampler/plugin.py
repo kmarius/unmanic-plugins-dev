@@ -86,6 +86,7 @@ def on_worker_process(data: ProcessItemData, **kwargs):
         'ffmpeg', '-i', file_in,
         '-map', '0', '-map_metadata', '0',
         '-c', 'copy',  # keeps album covers as is
+        '-c:a', 'flac',
         # '-af', 'aresample=resampler=soxr', # not avaliable in the container image
         '-sample_fmt', sample_fmt, '-ar', str(sample_rate),
         file_out,
