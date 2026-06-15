@@ -114,7 +114,7 @@ def on_worker_process(data: ProcessItemData, **kwargs):
         mapper.set_output_file(file_out)
 
         #  '-map', '-0:t', used in old script but fails here
-        mapper.main_options += ['-map_metadata', '-1', '-map_chapters', '-1']
+        mapper.main_options += ['-map_metadata', '-1']
 
         if apply_faststart:
             mapper.main_options += ['-movflags', '+faststart']
