@@ -24,21 +24,22 @@ def search_eng_idx(streams: dict) -> Optional[int]:
 
 # convert non-aac streams to aac
 def audio_stream_mapping(stream_info: dict, idx: int) -> Optional[dict]:
-    # TODO: always convert > 6 channels to 6?
     codec_name = stream_info['codec_name']
-    if codec_name == 'aac':
+    if codec_name in ['aac', 'opus']:
         return None
     logger.info(f'converting audio stream {idx} from {codec_name}')
-    stream_encoding = [f'-c:a:{idx}', 'aac']
-    if 'channels' in stream_info:
-        channels = int(stream_info.get('channels'))
-        if channels > 6:
-            channels = 6
-        calculated_bitrate = channels * 64
-        stream_encoding += [
-            f'-ac:a:{idx}', f'{channels}',
-            f'-b:a:{idx}', f'{calculated_bitrate}k',
-        ]
+    channels = int(stream_info.get('channels'))
+    if channels > 6:
+        bit_rate = '384k'
+    elif channels == 6:
+        bit_rate = '256k'
+    else:
+        bit_rate = '128k'
+    stream_encoding = [
+        f'-c:a:{idx}', 'libopus',
+        f'-b:a:{idx}', f'{bit_rate}',
+        f'-filter:a:{idx}', 'aformat=channel_layouts=7.1|5.1|stereo'
+    ]
     return {
         'stream_mapping': ['-map', f'0:a:{idx}'],
         'stream_encoding': stream_encoding,
