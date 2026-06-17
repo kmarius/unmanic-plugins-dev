@@ -1,0 +1,16 @@
+{
+  "author": "kmarius",
+  "compatibility": [
+    2
+  ],
+  "description": "Template",
+  "icon": "",
+  "id": "kmarius_template",
+  "name": "Template plugin",
+  "priorities": {
+    "on_library_management_file_test": 25,
+    "on_worker_process": 25
+  },
+  "tags": "",
+  "version": "0.0.1"
+}
